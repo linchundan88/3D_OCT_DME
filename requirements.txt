@@ -1,0 +1,24 @@
+
+numpy >= 1.11
+matplotlib >= 3.3.4
+pandas >= 1.2.2
+scikit-learn >= 0.24.1
+pydicom >= 2.1.2
+opencv-python >= 4.1
+imgaug >= 0.4.0
+albumentations >= 0.5.2
+captum >= 0.3.1
+medcam >= 0.1.6
+torchio >= 0.18.29
+
+
+# pip install -i https://mirrors.aliyun.com/pypi/simple/  pandas torch torchvision scikit-learn medcam imgaug captum pydicom matplotlib albumentations torchio pretrainedmodels tensorboard torch_optimizer timm SimpleITK
+
+# python -m pip install detectron2 -f \
+#  https://dl.fbaipublicfiles.com/detectron2/wheels/cu110/torch1.7/index.html
+
+
+#python -m pip install detectron2==0.3 -f \
+#  https://dl.fbaipublicfiles.com/detectron2/wheels/cu110/torch1.7/index.html
+
+# conda install cocotools  #pip error
