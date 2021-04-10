@@ -6,20 +6,14 @@ import PIL
 import numpy as np
 import torch
 import torch.nn.functional as F
-import torchvision.models as models
 from torchvision import transforms
-from libs.NeuralNetworks.Heatmaps.GradCamPP.gradcampp import GradCAM, GradCAMpp
+from libs.heatmaps.obsoleted.GradCamPP.gradcampp import GradCAM, GradCAMpp
 import pretrainedmodels
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 
 #region load model
-
-# model = models.vgg16(pretrained=True)
-# image_shape = (299, 299)
-# model_type = 'vgg'
-# layer_name = features_29
 
 # model_name = 'xception'
 # model = pretrainedmodels.__dict__[model_name](num_classes=1000, pretrained='imagenet')
@@ -44,7 +38,7 @@ model = model.to(device).eval()
 #endregion
 
 #region laod image
-img_path = os.path.join(os.path.abspath('.'), 'cat.jpeg')
+img_path = os.path.join(os.path.abspath(''), 'cat.jpeg')
 
 pil_img = PIL.Image.open(img_path)
 
@@ -65,17 +59,28 @@ cam_type = 'gradcam'
 if cam_type == 'gradcam':
     gradcam = GradCAM.from_config(model_type=model_type, arch=model, layer_name=layer_name)
     mask, logit = gradcam(normed_torch_img, class_idx=pred)
-    # mask, logit = gradcam(normed_torch_img)  #class_idx None choose top1 class
+
 if cam_type == 'gradcampp':
     gradcampp = GradCAMpp.from_config(model_type=model_type, arch=model, layer_name=layer_name)
     for _ in range(3):
         mask, logit = gradcampp(normed_torch_img, class_idx=pred)
 
-from matplotlib.pyplot import imshow, show
+from matplotlib.pyplot import show
 mask = mask.cpu().numpy()
 mask = np.squeeze(mask)
-imshow(mask, alpha=0.5, cmap='jet')
-show()
 
+# imshow(mask, alpha=0.5, cmap='jet', bbox_inches='tight')
+# show()
+
+import matplotlib.pyplot as plt
+img = plt.imshow(mask, alpha=0.5, cmap='jet')
+
+plt.imsave("foo.png", mask, format="png", cmap="jet")
+
+plt.axis("off")   # turns off axes
+plt.axis("tight")  # gets rid of white border
+plt.axis("image")  # square up the image instead of filling the "figure" space
+plt.savefig("test.png", bbox_inches='tight', pad_inches=0)
+show()
 
 print('OK')

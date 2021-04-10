@@ -1,6 +1,6 @@
 import cv2
 from imgaug import augmenters as iaa
-from libs.dataset.my_dataset_torchio import Dataset_CSV
+from libs.dataset.my_dataset_torchio import Dataset_CSV_train
 import numpy as np
 import os
 
@@ -29,7 +29,7 @@ imgaug = iaa.Sequential([
 
 aug_times = 10
 for aug_time in range(aug_times):
-      ds_test = Dataset_CSV(csv_file=csv_test, image_shape=image_shape, test_mode=True)
+      ds_test = Dataset_CSV_train(csv_file=csv_test, image_shape=image_shape, test_mode=True)
 
       tensor_3d = ds_test[0].numpy()  # (B,C,D,H,W) -> (D,H,W,C)
       tensor_3d = np.squeeze(tensor_3d)

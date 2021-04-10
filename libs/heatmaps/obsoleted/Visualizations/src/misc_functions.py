@@ -1,7 +1,3 @@
-"""
-Created on Thu Oct 21 11:09:09 2017
-@author: Utku Ozbulak - github.com/utkuozbulak
-"""
 import os
 import copy
 import numpy as np
@@ -183,7 +179,7 @@ def recreate_image(im_as_var):
     """
     reverse_mean = [-0.485, -0.456, -0.406]
     reverse_std = [1/0.229, 1/0.224, 1/0.225]
-    recreated_im = copy.copy(im_as_var.data.numpy()[0])
+    recreated_im = copy.copy(im_as_var.gradients.numpy()[0])
     for c in range(3):
         recreated_im[c] /= reverse_std[c]
         recreated_im[c] -= reverse_mean[c]
@@ -221,9 +217,9 @@ def get_example_params(example_index):
         pretrained_model(Pytorch model): Model to use for the operations
     """
     # Pick one of the examples
-    example_list = (('../input_images/snake.jpg', 56),
-                    ('../input_images/cat_dog.png', 243),
-                    ('../input_images/spider.png', 72))
+    example_list = (('/tmp2/snake.jpeg', 56),
+                    ('/tmp2/cat_dog.png', 243),
+                    ('/tmp2/spider.png', 72))
     img_path = example_list[example_index][0]
     target_class = example_list[example_index][1]
     file_name_to_export = img_path[img_path.rfind('/')+1:img_path.rfind('.')]

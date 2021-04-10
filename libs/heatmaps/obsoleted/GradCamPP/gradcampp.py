@@ -1,4 +1,11 @@
-'''https://github.com/vickyliin/gradcam_plus_plus-pytorch'''
+'''
+https://github.com/vickyliin/gradcam_plus_plus-pytorch
+modifications:
+1.adding 3d support or GradCAM
+2. besides the layer name, the class constructor can support the layer object.
+To do list
+adding 3d support for GradCAMpp
+'''
 
 import torch
 import torch.nn.functional as F
@@ -29,8 +36,9 @@ class GradCAM:
         heatmap, cam_result = visualize_cam(mask, img)
     """
 
-    def __init__(self, arch: torch.nn.Module, target_layer: torch.nn.Module):
+    def __init__(self, arch: torch.nn.Module, target_layer: torch.nn.Module, dim=2):
         self.model_arch = arch
+        self.dim = dim
 
         self.gradients = dict()
         self.activations = dict()
@@ -54,7 +62,7 @@ class GradCAM:
         self.model_arch(torch.zeros(1, 3, *input_size, device=device))
         return self.activations['value'].shape[2:]
 
-    def forward(self, input, class_idx=None, retain_graph=False):
+    def forward_2d(self, input, class_idx=None, retain_graph=False):
         b, c, h, w = input.size()
 
         logit = self.model_arch(input)
@@ -66,23 +74,58 @@ class GradCAM:
         self.model_arch.zero_grad()
         score.backward(retain_graph=retain_graph)
         gradients = self.gradients['value']
-        activations = self.activations['value']
+        activations = self.activations['value'] #(1,1536,8,8)
         b, k, u, v = gradients.size()
 
-        alpha = gradients.view(b, k, -1).mean(2)
+        # gradients:(1,1536,8,8) alpha:(1,1536)
+        alpha = gradients.view(b, k, -1).mean(dim=2)
         # alpha = F.relu(gradients.view(b, k, -1)).mean(2)
-        weights = alpha.view(b, k, 1, 1)
+        weights = alpha.view(b, k, 1, 1)  #(1,1536,1,1)
 
-        saliency_map = (weights*activations).sum(1, keepdim=True)
+        saliency_map = (weights*activations).sum(dim=1, keepdim=True)
         saliency_map = F.relu(saliency_map)
-        saliency_map = F.upsample(saliency_map, size=(h, w), mode='bilinear', align_corners=False)
+        #interpolate (1,1,8,8) -> (1,1,299,299)
+        saliency_map = F.interpolate(saliency_map, size=(h, w), mode='bilinear', align_corners=False)
         saliency_map_min, saliency_map_max = saliency_map.min(), saliency_map.max()
-        saliency_map = (saliency_map - saliency_map_min).div(saliency_map_max - saliency_map_min).data
+        saliency_map = (saliency_map - saliency_map_min).div(saliency_map_max - saliency_map_min).gradients
 
         return saliency_map, logit
 
+    def forward_3d(self, input, class_idx=None, retain_graph=False):
+        b, c, d, h, w = input.size()
+
+        logit = self.model_arch(input)
+        if class_idx is None:
+            score = logit[:, logit.max(1)[-1]].squeeze()
+        else:
+            score = logit[:, class_idx].squeeze()
+
+        self.model_arch.zero_grad()
+        score.backward(retain_graph=retain_graph)
+        gradients = self.gradients['value']
+        activations = self.activations['value']
+        b, k, _, _, _ = gradients.size()
+
+        # gradients:(1,512,8,8,8)  alpha(1,512)
+        alpha = gradients.view(b, k, -1).mean(dim=2)
+        # alpha = F.relu(gradients.view(b, k, -1)).mean(2)
+        weights = alpha.view(b, k, 1, 1, 1)  #(1,512,1,1,1)
+
+        #activation:(1,512,8,8) weights(1,512,1,1,1)
+        saliency_map_3d = (weights*activations).sum(dim=1, keepdim=True)
+        saliency_map_3d = F.relu(saliency_map_3d)
+        #interpolate (1,1,8,8,8) -> (1,1,64,64,64)
+        saliency_map_3d = F.interpolate(saliency_map_3d, size=(d, h, w), mode='trilinear', align_corners=False)
+        saliency_map_min, saliency_map_max = saliency_map_3d.min(), saliency_map_3d.max()
+        saliency_map_3d = (saliency_map_3d - saliency_map_min).div(saliency_map_max - saliency_map_min).gradients
+
+        return saliency_map_3d, logit
+
     def __call__(self, input, class_idx=None, retain_graph=False):
-        return self.forward(input, class_idx, retain_graph)
+        if self.dim == 2:
+            return self.forward_2d(input, class_idx, retain_graph)
+        if self.dim == 3:
+            return self.forward_3d(input, class_idx, retain_graph)
 
 
 class GradCAMpp(GradCAM):
@@ -108,7 +151,7 @@ class GradCAMpp(GradCAM):
         heatmap, cam_result = visualize_cam(mask, img)
     """
 
-    def forward(self, input, class_idx=None, retain_graph=False):
+    def forward_2d(self, input, class_idx=None, retain_graph=False):
         b, c, h, w = input.size()
 
         logit = self.model_arch(input)
@@ -133,8 +176,8 @@ class GradCAMpp(GradCAM):
 
         saliency_map = (weights*activations).sum(1, keepdim=True)
         saliency_map = F.relu(saliency_map)
-        saliency_map = F.upsample(saliency_map, size=(h, w), mode='bilinear', align_corners=False)
+        saliency_map = F.interpolate(saliency_map, size=(h, w), mode='bilinear', align_corners=False)
         saliency_map_min, saliency_map_max = saliency_map.min(), saliency_map.max()
-        saliency_map = (saliency_map-saliency_map_min).div(saliency_map_max-saliency_map_min).data
+        saliency_map = (saliency_map-saliency_map_min).div(saliency_map_max-saliency_map_min).gradients
 
         return saliency_map, logit

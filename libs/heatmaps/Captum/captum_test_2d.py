@@ -4,40 +4,37 @@ https://gilberttanner.com/blog/interpreting-pytorch-models-with-captum
 
 import os
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = "0,1"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 import torch
 import torch.nn.functional as F
-
 from PIL import Image
-
 import json
 import numpy as np
 from matplotlib.colors import LinearSegmentedColormap
-
-import torchvision
 import torch.nn as nn
-from torchvision import models
 from torchvision import transforms
 
 from captum.attr import *
 from captum.attr import visualization as viz
 import time
 
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-# model = models.resnet18(pretrained=True)
 # 'xception', 'inceptionresnetv2', 'inceptionv3'
-model_name = 'xception'
+model_name = 'inceptionresnetv2'
 import pretrainedmodels
 model = pretrainedmodels.__dict__[model_name](num_classes=1000, pretrained='imagenet')
 
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+if torch.cuda.device_count() > 0:
+    model.to(device)
 if torch.cuda.device_count() > 1:
     model = nn.DataParallel(model)
-model.cuda()
 model = model.eval()
 
-labels_path = os.getenv("HOME") + '/.torch/models/imagenet_class_index.json'
+labels_path = 'imagenet_class_index.json'
 with open(labels_path) as json_data:
     idx_to_labels = json.load(json_data)
 
@@ -85,9 +82,11 @@ default_cmap = LinearSegmentedColormap.from_list('custom blue',
                                                   (0.25, '#000000'),
                                                   (1, '#000000')], N=256)
 
+# LayerGradCam
 # IntegratedGradients Saliency  GuidedBackprop DeepLift, GradientShap,
-# DeepLift, IntegratedGradients, LayerGradCam
-heatmap_type = 'IntegratedGradients'
+# DeepLift, IntegratedGradients
+
+heatmap_type = 'LayerGradCam'
 
 if heatmap_type == 'IntegratedGradients':
     integrated_gradients = IntegratedGradients(model)
@@ -166,15 +165,28 @@ if heatmap_type == 'DeepLiftShap':
                                       show_colorbar=True)
 
 if heatmap_type == 'LayerGradCam':
-    # inceptionresnetv2 conv2d_7b, inceptionv3 Mixed_7c
-    layerGradCam = LayerGradCam(model, model.conv4)
+    # inceptionresnetv2 conv2d_7b, inceptionv3 Mixed_7c, xception conv4
+    layerGradCam = LayerGradCam(model, model.conv2d_7b)
     attribution = layerGradCam.attribute(input, target=pred_label_idx)
-    _ = viz.visualize_image_attr_multiple(np.transpose(attribution.squeeze().cpu().detach().numpy(), (1, 2, 0)),
-                                      np.transpose(transformed_img.squeeze().cpu().detach().numpy(), (1, 2, 0)),
-                                      ["original_image", "heat_map"],
-                                      ["all", "positive"],
-                                      cmap=default_cmap,
-                                      show_colorbar=True)
+    import torch.nn.functional as F
+    attribution = F.relu(attribution)
+    # (1,3,299,299) (1,1,10,10)
+    attribution = F.interpolate(attribution, size=(299, 299), mode='bilinear', align_corners=False)
+    saliency_map_min, saliency_map_max = attribution.min(), attribution.max()
+    attribution = (attribution - saliency_map_min).div(saliency_map_max - saliency_map_min).gradients
+
+    attribution = attribution.squeeze()
+    attribution = attribution.cpu().numpy()
+    import matplotlib.pyplot as plt
+
+    img = plt.imshow(attribution, alpha=0.5, cmap='jet')
+    from matplotlib.pyplot import imshow, show
+    # plt.imsave("foo.png", attribution, format="png", cmap="jet")
+    plt.axis("off")  # turns off axes
+    plt.axis("tight")  # gets rid of white border
+    plt.axis("image")  # square up the image instead of filling the "figure" space
+    plt.savefig("test.png", bbox_inches='tight', pad_inches=0)
+    show()
 
 
 

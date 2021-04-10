@@ -4,16 +4,16 @@ import cv2
 import torch
 from torch.utils.data import Dataset
 import albumentations as A
-from torchvision import transforms
 import numpy as np
 import torchio as tio
-from torch.utils.data import DataLoader
 import random
 
 
-class Dataset_CSV(Dataset):
+class Dataset_CSV_train(Dataset):
     def __init__(self, csv_file, channel_first=True, image_shape=None, test_mode=False,
-                 resample_ratio=(1, 1, 1),  crop_pad_pixel=15, crop_pad_ratio=(3, 9),
+                 resample_ratio=(1, 1, 1),
+                 depth_interval=2,
+                 crop_pad_pixel=15, crop_pad_ratio=(3, 9),
                  imgaug_iaa=None,
                  ):
         assert os.path.exists(csv_file), f'csv file {csv_file} does not exists'
@@ -26,6 +26,7 @@ class Dataset_CSV(Dataset):
         self.test_mode = test_mode
 
         self.resample_ratio = resample_ratio
+        self.depth_interval = depth_interval
         self.crop_pad_pixel = crop_pad_pixel
         self.crop_pad_ratio = crop_pad_ratio
 
@@ -35,15 +36,14 @@ class Dataset_CSV(Dataset):
         array_npy = np.load(file_npy)  # shape (D,H,W)
         if array_npy.ndim > 3:
             array_npy = np.squeeze(array_npy)
+        array_npy = np.expand_dims(array_npy, axis=0)  #(C,D,H,W)
 
-        int_r = random.randint(0, 20)
-        if int_r % 2 == 0:
-            array_4d = np.expand_dims(array_npy[0::2, :, :], axis=0)
-        else:
-            array_4d = np.expand_dims(array_npy[1::2, :, :], axis=0)
+        #if depth_interval==2  (128,128,128)->(64,128,128)
+        depth_start_random = random.randint(0, 20) % self.depth_interval
+        array_npy = array_npy[:, depth_start_random::self.depth_interval, :, :]
 
         subject1 = tio.Subject(
-            oct=tio.ScalarImage(tensor=array_4d),
+            oct=tio.ScalarImage(tensor=array_npy),
         )
         subjects_list = [subject1]
 
@@ -78,19 +78,20 @@ class Dataset_CSV(Dataset):
         subjects_dataset = tio.SubjectsDataset(subjects_list, transform=transform)
 
         inputs = subjects_dataset[0]['oct'][tio.DATA]
-        array1 = np.squeeze(inputs.cpu().numpy())  #array1.shape: (D,H,W)
-        array1 = array1.astype(np.uint8)
+        array_3d = np.squeeze(inputs.cpu().numpy())  #shape: (D,H,W)
+        array_3d = array_3d.astype(np.uint8)
 
         if self.imgaug_iaa is not None:
             self.imgaug_iaa.deterministic = True
         else:
-            if (array1.shape[1:3]) == (self.image_shape[0:2]):  # (H,W)
-                array_4d_out = np.expand_dims(array_npy, axis=-1)  #(D,H,W,C)
+            if (self.image_shape is None) or\
+                    (array_3d.shape[1:3]) == (self.image_shape[0:2]):  # (H,W)
+                array_4d = np.expand_dims(array_3d, axis=-1)  #(D,H,W,C)
 
-        if 'array_4d_out' not in locals().keys():
+        if 'array_4d' not in locals().keys():
             list_images = []
-            for i in range(array1.shape[0]):  # D,H,W
-                img = array1[i, :, :]
+            for i in range(array_3d.shape[0]):
+                img = array_3d[i, :, :]  #(H,W)
                 if (img.shape[0:2]) != (self.image_shape[0:2]):  # (H,W)
                     img = cv2.resize(img, (self.image_shape[1], self.image_shape[0]))  # resize(width,height)
 
@@ -103,26 +104,131 @@ class Dataset_CSV(Dataset):
                 img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
                 list_images.append(img)
 
-            array_4d_out = np.array(list_images)  # (D,H,W)
-            array_4d_out = np.expand_dims(array_4d_out, axis=-1) #(D,H,W,C)
+            array_4d = np.array(list_images)  # (D,H,W)
+            array_4d = np.expand_dims(array_4d, axis=-1) #(D,H,W,C)
 
         if self.imgaug_iaa is not None:
             self.imgaug_iaa.deterministic = False
 
         if self.channel_first:
-            array_4d_out = np.transpose(array_4d_out, (3, 0, 1, 2))
+            array_4d = np.transpose(array_4d, (3, 0, 1, 2)) #(D,H,W,C)->(C,D,H,W)
 
-        array_4d_out = array_4d_out.astype(np.float32)
-        array_4d_out = array_4d_out / 255.
+        array_4d = array_4d.astype(np.float32)
+        array_4d = array_4d / 255.
 
-        tensor = torch.from_numpy(array_4d_out)
+        tensor_x = torch.from_numpy(array_4d)
 
         if self.test_mode:
-            return tensor
+            return tensor_x
         else:
             label = int(self.df.iloc[index][1])
-            return tensor, label
+            return tensor_x, label
 
     def __len__(self):
         return len(self.df)
+
+
+class Dataset_CSV_test(Dataset):
+    def __init__(self, csv_file, channel_first=True, image_shape=None,
+                 depth_start=0, depth_interval=1,
+                 test_mode=False):
+        assert os.path.exists(csv_file), f'csv file {csv_file} does not exists'
+        self.csv_file = csv_file
+        self.df = pd.read_csv(csv_file)
+        assert len(self.df) > 0, 'csv file is empty!'
+        self.image_shape = image_shape
+        self.depth_start = depth_start
+        self.depth_interval = depth_interval
+
+        self.channel_first = channel_first
+        self.test_mode = test_mode
+
+    def __getitem__(self, index):
+        file_npy = self.df.iloc[index][0]
+        assert os.path.exists(file_npy), f'npy file {file_npy} does not exists'
+        array_3d = np.load(file_npy)  # shape (D,H,W)
+        if array_3d.ndim > 3:
+            array_3d = np.squeeze(array_3d)
+        if not(self.depth_start != 0 and self.depth_interval != 1):
+            array_3d = array_3d[self.depth_start::self.depth_interval, :, :]
+
+        if (self.image_shape is None) or \
+                (array_3d.shape[1:3]) == (self.image_shape[0:2]):  # (H,W)
+                array_4d = np.expand_dims(array_3d, axis=-1)  #(D,H,W,C)
+
+        if 'array_4d' not in locals().keys():
+            list_images = []
+            for i in range(array_3d.shape[0]):
+                img = array_3d[i, :, :]  #(H,W)
+                if (img.shape[0:2]) != (self.image_shape[0:2]):  # (H,W)
+                    img = cv2.resize(img, (self.image_shape[1], self.image_shape[0]))  # resize(width,height)
+
+                # cvtColor do not support float64
+                img = cv2.cvtColor(img.astype(np.float32), cv2.COLOR_GRAY2BGR)
+                # other wise , MultiplyBrightness error
+                img = img.astype(np.uint8)
+                img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+                list_images.append(img)
+
+            array_4d = np.array(list_images)  # (D,H,W)
+            array_4d = np.expand_dims(array_4d, axis=-1) #(D,H,W,C)
+
+        if self.channel_first:
+            array_4d = np.transpose(array_4d, (3, 0, 1, 2)) #(D,H,W,C)->(C,D,H,W)
+
+        array_4d = array_4d.astype(np.float32)
+        array_4d = array_4d / 255.
+
+        tensor_x = torch.from_numpy(array_4d)
+
+        if self.test_mode:
+            return tensor_x
+        else:
+            label = int(self.df.iloc[index][1])
+            return tensor_x, label
+
+    def __len__(self):
+        return len(self.df)
+
+
+def get_tensor(file_npy, channel_first=True, image_shape=None,
+                 depth_start=0, depth_interval=1):
+    assert os.path.exists(file_npy), f'npy file {file_npy} does not exists'
+    array_3d = np.load(file_npy)  # shape (D,H,W)
+    if array_3d.ndim > 3:
+        array_3d = np.squeeze(array_3d)
+    if not (depth_start != 0 and depth_interval != 1):
+        array_3d = array_3d[depth_start::depth_interval, :, :]
+
+    if (image_shape is None) or (array_3d.shape[1:3]) == (image_shape[0:2]):  # (H,W)
+        array_4d = np.expand_dims(array_3d, axis=-1)  # (D,H,W,C)
+
+    if 'array_4d' not in locals().keys():
+        list_images = []
+        for i in range(array_3d.shape[0]):
+            img = array_3d[i, :, :]  # (H,W)
+            if (img.shape[0:2]) != (image_shape[0:2]):  # (H,W)
+                img = cv2.resize(img, (image_shape[1], image_shape[0]))  # resize(width,height)
+
+            # cvtColor do not support float64
+            img = cv2.cvtColor(img.astype(np.float32), cv2.COLOR_GRAY2BGR)
+            # other wise , MultiplyBrightness error
+            img = img.astype(np.uint8)
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+            list_images.append(img)
+
+        array_4d = np.array(list_images)  # (D,H,W)
+        array_4d = np.expand_dims(array_4d, axis=-1)  # (D,H,W,C)
+
+    if channel_first:
+        array_4d = np.transpose(array_4d, (3, 0, 1, 2))  # (D,H,W,C)->(C,D,H,W)
+
+    array_5d = np.expand_dims(array_4d, axis=0)  #(C,D,H,W) (N,C,D,H,W)
+    array_5d = array_5d.astype(np.float32)
+    array_5d = array_5d / 255.
+
+    tensor_x = torch.from_numpy(array_5d)
+
+    return tensor_x
+
 

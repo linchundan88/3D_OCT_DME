@@ -4,43 +4,6 @@ import math
 import cv2
 import os
 
-# detect vessel G channel
-def get_green_channel(img1, img_file_dest=None):
-    if isinstance(img1, str):
-        img1 = cv2.imread(img1)
-
-    img1 = img1[:, :, 1] # BGR
-    img1 = np.expand_dims(img1, axis=-1)
-
-    img_zero = np.zeros(img1.shape)
-    img2 = np.concatenate((img_zero, img1, img_zero), axis=-1)
-
-    if img_file_dest is not None:
-        cv2.imwrite(img_file_dest, img2)
-    else:
-        return img2
-
-
-# crop fovea from 512 image, train model is for 299*299
-def my_crop_fovea(img1, center_x, center_y):
-    center_x = center_x * (img1.shape[1] / 299)
-    center_y = center_y * (img1.shape[0] / 299)
-
-    left = center_x - (img1.shape[1] * 1/5)
-    left = int(max(round(left), 0))
-    right = center_x + (img1.shape[1] * 1 / 5)
-    right = int(min(round(right), img1.shape[1]))
-    bottom = center_y - (img1.shape[0] * 1 / 5)
-    bottom = int(max(round(bottom), 0))
-    top = center_y + (img1.shape[0] * 1 / 5)
-    top = int(min(round(top), img1.shape[1]))
-
-    img2 = img1[bottom:top, left:right]
-
-    img2 = image_to_square(img2)
-
-    return img2
-
 
 def resize_images_dir(source_dir='', dest_dir='', p_image_to_square=False,
                       image_shape=(299, 299)):
@@ -155,60 +118,6 @@ def image_to_square_dir(source_dir, dest_dir, image_size=None, grayscale=False):
             print(image_file_dest)
             cv2.imwrite(image_file_dest, image_converted)
 
-# 加载一个或者图像文件或者图像文件列表 到 一个list  (384,384,3)  my_images_aug使用
-def load_resize_images(image_files, image_shape=None, grayscale=False):
-    list_image = []
-
-    if isinstance(image_files, list):   # list of image files
-        for image_file in image_files:
-            image_file = image_file.strip()
-
-            if grayscale:
-                image1 = cv2.imread(image_file, cv2.IMREAD_GRAYSCALE)
-            else:
-                image1 = cv2.imread(image_file)
-
-            try:
-                if (image_shape is not None) and (image1.shape[:2] != image_shape[:2]):
-                        image1 = cv2.resize(image1, image_shape[:2])
-            except:
-                raise Exception("Invalid image:" + image_file)
-
-            if image1 is None:
-                raise Exception("Invalid image:" + image_file)
-
-            if image1.ndim == 2:
-                image1 = np.expand_dims(image1, axis=-1)
-
-            list_image.append(image1)
-    else:
-        if isinstance(image_files, str):
-            if grayscale:
-                image1 = cv2.imread(image_files, cv2.IMREAD_GRAYSCALE)
-            else:
-                image1 = cv2.imread(image_files)
-        else:
-            if grayscale and image_files.ndim == 3:
-                image1 = cv2.cvtColor(image_files, cv2.COLOR_BGR2GRAY)
-            else:
-                image1 = image_files
-
-        try:
-            if (image_shape is not None) and (image1.shape[:2] != image_shape[:2]):
-                image1 = cv2.resize(image1, image_shape[:2])
-        except:
-            raise Exception("Invalid image:" + image_files)
-
-        if image1 is None:
-            raise Exception("Invalid image:" + image_files)
-
-        if image1.ndim == 2:
-            image1 = np.expand_dims(image1, axis=-1)
-
-        list_image.append(image1)
-
-    return list_image
-
 
 def crop_image(img1, bottom, top, left, right):
     if isinstance(img1, str):
@@ -222,7 +131,7 @@ def crop_image(img1, bottom, top, left, right):
     return img2
 
 
-if __name__ ==  '__main__':
+if __name__ == '__main__':
     img1 = np.ones((50, 100, 3))
     img1 = img1 * 255
     cv2.imwrite('/tmp1/111.jpg', img1)

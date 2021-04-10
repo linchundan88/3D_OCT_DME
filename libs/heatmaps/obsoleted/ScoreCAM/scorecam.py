@@ -10,7 +10,7 @@ import torch
 import torch.nn.functional as F
 import sys
 import os
-sys.path.append(os.path.abspath('./'))
+sys.path.append(os.path.abspath('/'))
 from .misc_functions import get_example_params, save_class_activation_images
 
 class CamExtractor():
@@ -59,7 +59,7 @@ class ScoreCam():
         # model_output is the final output of the model (1, 1000)
         conv_output, model_output = self.extractor.forward_pass(input_image)
         if target_class is None:
-            target_class = np.argmax(model_output.data.numpy())
+            target_class = np.argmax(model_output.gradients.numpy())
         # Get convolution outputs
         target = conv_output[0]
         # Create empty numpy array for cam
@@ -76,7 +76,7 @@ class ScoreCam():
             norm_saliency_map = (saliency_map - saliency_map.min()) / (saliency_map.max() - saliency_map.min())
             # Get the target score
             w = F.softmax(self.extractor.forward_pass(input_image*norm_saliency_map)[1],dim=1)[0][target_class]
-            cam += w.data.numpy() * target[i, :, :].data.numpy()
+            cam += w.gradients.numpy() * target[i, :, :].gradients.numpy()
         cam = np.maximum(cam, 0)
         cam = (cam - np.min(cam)) / (np.max(cam) - np.min(cam))  # Normalize between 0-1
         cam = np.uint8(cam * 255)  # Scale between 0-255 to visualize

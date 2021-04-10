@@ -1,6 +1,4 @@
-'''
-  the difference between valid() and code_test() is that valid compute losses.
-'''
+
 import warnings
 warnings.filterwarnings("ignore")
 import os
@@ -10,8 +8,8 @@ from sklearn.metrics import confusion_matrix
 
 
 def train(model, loader_train, criterion, optimizer, scheduler,
-          epochs_num, log_interval_train=10, log_interval_valid=None,
-          save_model_dir=None,
+          epochs_num,
+          log_interval_train=10, log_interval_valid=None, save_model_dir=None,
           loader_valid=None, loader_test=None, accumulate_grads_times=None):
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -31,7 +29,6 @@ def train(model, loader_train, criterion, optimizer, scheduler,
         for batch_idx, (inputs, labels) in enumerate(loader_train):
             inputs = inputs.to(device)
             labels = labels.to(device)
-
             outputs = model(inputs)
             loss = criterion(outputs, labels)
 
@@ -46,6 +43,7 @@ def train(model, loader_train, criterion, optimizer, scheduler,
                     optimizer.zero_grad()
 
             # statistics
+            outputs = torch.softmax(outputs, dim=1)
             _, preds = torch.max(outputs, 1)
 
             list_labels += labels.cpu().numpy().tolist()
@@ -53,11 +51,11 @@ def train(model, loader_train, criterion, optimizer, scheduler,
 
             #show average losses instead of batch total losses  *inputs.size(0) total losses
             running_loss += loss.item()
-            running_corrects += torch.sum(preds == labels.data).cpu().numpy()
+            running_corrects += torch.sum(preds == labels.gradients).cpu().numpy()
             running_sample_num += len(inputs)
 
             epoch_loss += loss.item()
-            epoch_corrects += torch.sum(preds == labels.data).cpu().numpy()
+            epoch_corrects += torch.sum(preds == labels.gradients).cpu().numpy()
             epoch_sample_num += len(inputs)
 
             if log_interval_train is not None:
@@ -88,7 +86,7 @@ def train(model, loader_train, criterion, optimizer, scheduler,
 
             torch.save(state_dict, save_model_file)
 
-
+# @torch.no_grad()
 def validate(model, dataloader, log_interval=None):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -96,16 +94,17 @@ def validate(model, dataloader, log_interval=None):
     running_sample_num, running_corrects = 0, 0
     list_labels, list_preds = [], []
 
-    with torch.no_grad():
+    if True:
         for batch_idx, (inputs, labels) in enumerate(dataloader):
             inputs, labels = inputs.to(device), labels.to(device)
             outputs = model(inputs)
+            outputs = torch.softmax(outputs, dim=1)
             _, preds = torch.max(outputs, 1)
 
             list_labels += labels.cpu().numpy().tolist()
             list_preds += preds.cpu().numpy().tolist()
 
-            running_corrects += torch.sum(preds == labels.data).cpu().numpy()
+            running_corrects += torch.sum(preds == labels.gradients).cpu().numpy()
             running_sample_num += len(inputs)
 
             if log_interval is not None:

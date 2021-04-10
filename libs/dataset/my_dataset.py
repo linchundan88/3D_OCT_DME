@@ -73,9 +73,14 @@ class Dataset_CSV_3d(Dataset):
 
 
 
-def npy_to_tensor(file_npy, image_shape=(64, 64), channel_first=True):
+def npy_to_tensor(file_npy, image_shape=(64, 64),
+                  depth_start=0, depth_interval=1,
+                  channel_first=True):
     assert os.path.exists(file_npy), f'npy file {file_npy} does not exists'
     array_3d = np.load(file_npy)  # shape (D,H,W)
+    if array_3d.ndim > 3:
+        array_3d = np.squeeze(array_3d)
+    array_3d = array_3d[depth_start::depth_interval, :, :]
 
     if (array_3d.shape[1:3]) != (image_shape[0:2]):  # (H,W)
         array_4d = np.expand_dims(array_3d, axis=-1)
@@ -97,7 +102,6 @@ def npy_to_tensor(file_npy, image_shape=(64, 64), channel_first=True):
             img = np.expand_dims(img, axis=-1)  # (H,W,C)
             list_images.append(img)
             array_4d = np.array(list_images)  # (D,H,W,C)
-
 
     if channel_first:
         array_4d = np.transpose(array_4d, (3, 0, 1, 2))  #(C,D,H,W)

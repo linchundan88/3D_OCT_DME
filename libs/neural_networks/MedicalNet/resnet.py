@@ -29,10 +29,10 @@ def downsample_basic_block(x, planes, stride, no_cuda=False):
         out.size(0), planes - out.size(1), out.size(2), out.size(3),
         out.size(4)).zero_()
     if not no_cuda:
-        if isinstance(out.data, torch.cuda.FloatTensor):
+        if isinstance(out.gradients, torch.cuda.FloatTensor):
             zero_pads = zero_pads.cuda()
 
-    out = Variable(torch.cat([out.data, zero_pads], dim=1))
+    out = Variable(torch.cat([out.gradients, zero_pads], dim=1))
 
     return out
 
@@ -174,8 +174,8 @@ class ResNet(nn.Module):
             if isinstance(m, nn.Conv3d):
                 m.weight = nn.init.kaiming_normal(m.weight, mode='fan_out')
             elif isinstance(m, nn.BatchNorm3d):
-                m.weight.data.fill_(1)
-                m.bias.data.zero_()
+                m.weight.gradients.fill_(1)
+                m.bias.gradients.zero_()
 
     def _make_layer(self, block, planes, blocks, shortcut_type, stride=1, dilation=1):
         downsample = None
@@ -270,21 +270,34 @@ def resnet200(**kwargs):
 
 
 class Resnet3d_cls(nn.Module):
-    def __init__(self, base_model, n_class=1, block_type='BasicBlock'):
+    def __init__(self, base_model, n_class=1, block_type='BasicBlock', add_dense1=True):
         super(Resnet3d_cls, self).__init__()
         self.base_model = base_model
-        if block_type == 'BasicBlock':
-            self.dense_1 = nn.Linear(512, 1024, bias=True)
-        if block_type == 'Bottleneck':
-            self.dense_1 = nn.Linear(2048, 1024, bias=True)
 
-        self.dense_2 = nn.Linear(1024, n_class, bias=True)
+        self.add_dense1 = add_dense1
+        if add_dense1:
+            if block_type == 'BasicBlock':
+                self.dense_1 = nn.Linear(512, 1024, bias=True)
+            if block_type == 'Bottleneck':
+                self.dense_1 = nn.Linear(2048, 1024, bias=True)
+
+            self.dense_2 = nn.Linear(1024, n_class, bias=True)
+        else:
+            if block_type == 'BasicBlock':
+                self.dense_2 = nn.Linear(512, n_class, bias=True)
+            if block_type == 'Bottleneck':
+                self.dense_2 = nn.Linear(2048, n_class, bias=True)
+
 
     def forward(self, x):
         self.base_out = self.base_model(x)
         self.out_glb_avg_pool = F.avg_pool3d(self.base_out, kernel_size=self.base_out.size()[2:]).view(self.base_out.size()[0],-1)
-        self.linear_out = self.dense_1(self.out_glb_avg_pool)
-        final_out = self.dense_2(F.relu(self.linear_out))
+
+        if self.add_dense1:
+            self.linear_out = self.dense_1(self.out_glb_avg_pool)
+            final_out = self.dense_2(F.relu(self.linear_out))
+        else:
+            final_out = self.dense_2(self.out_glb_avg_pool)
 
         return final_out
 

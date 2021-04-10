@@ -3,7 +3,7 @@ import os
 import pydicom
 import numpy as np
 import cv2
-import math
+
 
 # input dicom file, output 3d ndarray
 def get_dicom_array(filename):
@@ -12,17 +12,6 @@ def get_dicom_array(filename):
     array1 = ds2.pixel_array
     return array1
 
-def get_npy(files_batch):
-    list_image = []
-
-    for file_npy in files_batch:
-        assert os.path.exists(file_npy), 'npy file does not exist.'
-        array1 = np.load(file_npy)  # shape (D,H,W)
-        if array1.ndim == 3:
-            array1 = np.expand_dims(array1, axis=-1)  #(D, H, W,  C)
-        list_image.append(array1)
-
-    return list_image
 
 def crop_3d_topocon(array1,
                     image_shape=(128, 128), padding_square=True,
@@ -149,3 +138,35 @@ def dicom_save_dirs(source_dir, dir_dest_base,
                     cv2.imwrite(filename, array1[i, :, :])
 
 
+def slices_to_npy(dir1, depth_ratio=1, remainder=0, slice_num=128):
+
+    for dir_path, subpaths, files in os.walk(dir1, False):
+        #zesis 1.jpeg, topocon 0.png
+        if os.path.exists(os.path.join(dir_path, '1.jpeg')) \
+                or os.path.exists(os.path.join(dir_path, '0.png')):
+
+            list_images = []
+            for i in range(slice_num):
+                if i % depth_ratio == remainder:
+                    if os.path.exists(os.path.join(dir_path, f'{str(i)}.png')):
+                        img_file = os.path.join(dir_path,  f'{str(i)}.png')
+                    elif os.path.exists(os.path.join(dir_path, f'{str(i+1)}.jpeg')):
+                        img_file = os.path.join(dir_path, f'{str(i+1)}.jpeg')
+                    else:
+                        # raise Exception(f'file not found:{img_file}')
+                        break
+
+                    img1 = cv2.imread(img_file, cv2.IMREAD_GRAYSCALE) #(H,W)
+                    list_images.append(img1)
+
+            assert len(list_images) == slice_num, f'dir_path error.'
+
+            images = np.stack(list_images, axis=0)  #(H,W)->(D,H,W)
+
+            pat_id = dir_path.split('/')[-1]
+            if depth_ratio == 1 and remainder == 0:
+                file_npy = os.path.join(dir_path, pat_id + '.npy')
+            else:
+                file_npy = os.path.join(dir_path, pat_id + f'_d{depth_ratio}_r{str(remainder)}.npy')
+            # print(file_npy)
+            np.save(file_npy, images)

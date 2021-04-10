@@ -1,10 +1,19 @@
-'''https://github.com/MrGiovanni/ModelsGenesis/blob/master/pytorch/unet3d.py '''
+
+'''
+based on https://github.com/MrGiovanni/ModelsGenesis/blob/master/pytorch/unet3d.py
+The following changes were made.
+1.remove a major bug:
+replaced ContBatchNorm3d by nn.BatchNorm3d() because ContBatchNorm3d performed wrongly during reference.
+
+2. add a class UNet3D_classification
+
+'''
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-
+'''
 class ContBatchNorm3d(nn.modules.batchnorm._BatchNorm):
     def _check_input_dim(self, input):
 
@@ -17,13 +26,14 @@ class ContBatchNorm3d(nn.modules.batchnorm._BatchNorm):
         return F.batch_norm(
             input, self.running_mean, self.running_var, self.weight, self.bias,
             True, self.momentum, self.eps)
-
+'''
 
 class LUConv(nn.Module):
     def __init__(self, in_chan, out_chan, act):
         super(LUConv, self).__init__()
         self.conv1 = nn.Conv3d(in_chan, out_chan, kernel_size=3, padding=1)
-        self.bn1 = ContBatchNorm3d(out_chan)
+        # self.bn1 = ContBatchNorm3d(out_chan)
+        self.bn1 = nn.BatchNorm3d(out_chan)
 
         if act == 'relu':
             self.activation = nn.ReLU(out_chan)
@@ -41,13 +51,13 @@ class LUConv(nn.Module):
 
 def _make_nConv(in_channel, depth, act, double_chnnel=False):
     if double_chnnel:
-        layer1 = LUConv(in_channel, 32 * (2 ** (depth+1)),act)
-        layer2 = LUConv(32 * (2 ** (depth+1)), 32 * (2 ** (depth+1)),act)
+        layer1 = LUConv(in_channel, 32 * (2 ** (depth+1)), act)
+        layer2 = LUConv(32 * (2 ** (depth+1)), 32 * (2 ** (depth+1)), act)
     else:
-        layer1 = LUConv(in_channel, 32*(2**depth),act)
-        layer2 = LUConv(32*(2**depth), 32*(2**depth)*2,act)
+        layer1 = LUConv(in_channel, 32*(2**depth), act)
+        layer2 = LUConv(32*(2**depth), 32*(2**depth)*2, act)
 
-    return nn.Sequential(layer1,layer2)
+    return nn.Sequential(layer1, layer2)
 
 
 # class InputTransition(nn.Module):
@@ -69,7 +79,7 @@ def _make_nConv(in_channel, depth, act, double_chnnel=False):
 class DownTransition(nn.Module):
     def __init__(self, in_channel,depth, act):
         super(DownTransition, self).__init__()
-        self.ops = _make_nConv(in_channel, depth,act)
+        self.ops = _make_nConv(in_channel, depth, act)
         self.maxpool = nn.MaxPool3d(2)
         self.current_depth = depth
 
@@ -87,11 +97,11 @@ class UpTransition(nn.Module):
         super(UpTransition, self).__init__()
         self.depth = depth
         self.up_conv = nn.ConvTranspose3d(inChans, outChans, kernel_size=2, stride=2)
-        self.ops = _make_nConv(inChans+ outChans//2,depth, act, double_chnnel=True)
+        self.ops = _make_nConv(inChans + outChans//2, depth, act, double_chnnel=True)
 
     def forward(self, x, skip_x):
         out_up_conv = self.up_conv(x)
-        concat = torch.cat((out_up_conv,skip_x),1)
+        concat = torch.cat((out_up_conv, skip_x), 1)
         out = self.ops(concat)
         return out
 
