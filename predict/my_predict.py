@@ -6,38 +6,50 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "0,1"
 import torch
 from torch.utils.data import DataLoader
 import pandas as pd
-import shutil
 
 dir_original = '/disk1/3D_OCT_DME/original/'
 dir_preprocess = '/disk1/3D_OCT_DME/preprocess/128_128_128/'
 dir_dest = '/tmp2/3D_OCT_DME/confusion_files1/'
 
-# data_version = 'v1_topocon_zeiss_64_64_64'
 filename_csv = os.path.join(os.path.abspath('..'),
                 'datafiles', 'v1_topocon_128_128_128', f'3D_OCT_DME_split_patid_test.csv')
+num_class = 2
 
-# from libs.neural_networks.ModelsGenesis.unet3d import UNet3D_classification
-# model = UNet3D_classification(n_class=2)
-# model_file = '/tmp2/2020_2_23/v1_topocon_128_128_128/ModelsGenesis/0/epoch12.pth'
-# state_dict = torch.load(model_file, map_location='cpu')
-# model.load_state_dict(state_dict, strict=False)
+model_name = 'ModelsGenesis'
 
-from libs.neural_networks.ModelsGenesis.unet3d import UNet3D, TargetNet
-base_model = UNet3D()
-model = TargetNet(base_model, n_class=2)
-# model_file = '/tmp2/2020_2_23/v1_topocon_128_128_128/ModelsGenesis/0/epoch12.pth'
-model_file = '/tmp2/2020_2_23_afternoon/v1_topocon_128_128_128/medical_net_resnet50/0/epoch5.pth'
+#region define model
+if model_name == 'ModelsGenesis':
+    from libs.neural_networks.model.ModelsGenesis.cls3d import Cls_3d
+    model = Cls_3d(n_class=num_class)
+
+if model_name == 'medical_net_resnet34':
+    from libs.neural_networks.model.MedicalNet.resnet import resnet34, Resnet3d_cls
+    base_model = resnet34(output_type='classification')
+    model = Resnet3d_cls(base_model=base_model, n_class=num_class, block_type='BasicBlock', add_dense1=True)
+if model_name == 'medical_net_resnet50':
+    from libs.neural_networks.model.MedicalNet.resnet import resnet50, Resnet3d_cls
+    base_model = resnet50(output_type='classification')
+    model = Resnet3d_cls(base_model=base_model, n_class=num_class, block_type='Bottleneck', add_dense1=True)
+if model_name == 'medical_net_resnet101':
+    from libs.neural_networks.model.MedicalNet.resnet import resnet101, Resnet3d_cls
+    base_model = resnet101(output_type='classification')
+    model = Resnet3d_cls(base_model=base_model, n_class=num_class, block_type='Bottleneck', add_dense1=True)
+
+#endregion
+
+model_file = '/tmp2/2020_3_11/v1_topocon_128_128_128/ModelsGenesis/0/epoch7.pth'
 state_dict = torch.load(model_file, map_location='cpu')
 model.load_state_dict(state_dict, strict=False)
+
 
 from libs.dataset.my_dataset_torchio import Dataset_CSV_test
 batch_size_valid = 32
 image_shape = (64, 64)
 ds_valid = Dataset_CSV_test(csv_file=filename_csv, image_shape=image_shape,
                             depth_start=0, depth_interval=2, test_mode=True)
-loader_valid = DataLoader(ds_valid, batch_size=batch_size_valid, num_workers=4)
+loader_valid = DataLoader(ds_valid, batch_size=batch_size_valid, pin_memory=True,  num_workers=4)
 
-from libs.helper.my_predict import predict
+from libs.neural_networks.helper.my_predict import predict
 (probs, lables_pd) = predict(model, loader_valid)
 
 df = pd.read_csv(filename_csv)

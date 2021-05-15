@@ -11,7 +11,7 @@ import torch.optim as optim
 from torch.optim.lr_scheduler import StepLR
 from libs.dataset.my_dataset_torchio import Dataset_CSV_train, Dataset_CSV_test
 from torch.utils.data import DataLoader
-from libs.helper.my_train import train
+from libs.neural_networks.helper.my_train import train
 
 
 #region prepare dataset
@@ -58,8 +58,6 @@ imgaug_iaa = iaa.Sequential([
 df = pd.read_csv(csv_train)
 num_class = df['labels'].nunique(dropna=True)
 
-class_weights = [1, 2.5]
-
 from torch.utils.data.sampler import WeightedRandomSampler
 list_class_samples = []
 for label in range(num_class):
@@ -72,26 +70,29 @@ for label in df['labels']:
 sampler = WeightedRandomSampler(weights=sample_weights, num_samples=len(df))
 
 batch_size_train, batch_size_valid = 32, 32
+num_workers = 4  #recommend num_workers = the number of gpus * 4
 ds_train = Dataset_CSV_train(csv_file=csv_train, image_shape=image_shape)
 loader_train = DataLoader(ds_train, batch_size=batch_size_train,
-                          sampler=sampler, num_workers=4)
+                          sampler=sampler, pin_memory=True, num_workers=num_workers)
 ds_valid = Dataset_CSV_test(csv_file=csv_valid, image_shape=image_shape,
                             depth_start=0, depth_interval=2)
 loader_valid = DataLoader(ds_valid, batch_size=batch_size_valid,
-                           num_workers=4)
+                           pin_memory=True, num_workers=num_workers)
 ds_test = Dataset_CSV_test(csv_file=csv_test, image_shape=image_shape,
                            depth_start=0, depth_interval=2)
 loader_test = DataLoader(ds_test, batch_size=batch_size_valid,
-                        num_workers=4)
+                            pin_memory=True, num_workers=num_workers)
+
+class_weights = [1, 2.5]
 #endregion
 
 #region training
-save_model_dir = f'/tmp2/2020_3_11_wo_pretrain/{data_version}'
+save_model_dir = f'/tmp2/2020_5_15/{data_version}'
 train_times = 1
-train_type = 'scratch' #scratch, pre_trained
+train_type = 'pre_trained' #scratch, pre_trained
 
 for train_time in range(train_times):
-    for model_name in ['medical_net_resnet50']:
+    for model_name in ['ModelsGenesis']:
         if model_name == 'ModelsGenesis':
             '''
             from libs.neural_networks.ModelsGenesis.unet3d import UNet3D, TargetNet
@@ -102,8 +103,8 @@ for train_time in range(train_times):
                 base_model.load_state_dict(state_dict, strict=False)
             model = TargetNet(base_model, n_class=num_class)
             '''
-            from libs.neural_networks.ModelsGenesis.unet3d import UNet3D_classification
-            model = UNet3D_classification(n_class=num_class)
+            from libs.neural_networks.model.ModelsGenesis.cls3d import Cls_3d
+            model = Cls_3d(n_class=num_class)
             if train_type == 'pre_trained':
                 model_file = '/disk1/Models_Genesis/Genesis_Chest_CT.pt'
                 state_dict = torch.load(model_file, map_location='cpu')
@@ -111,7 +112,7 @@ for train_time in range(train_times):
 
         #region medical net
         if model_name == 'medical_net_resnet34':
-            from libs.neural_networks.MedicalNet.resnet import resnet34, Resnet3d_cls
+            from libs.neural_networks.model.MedicalNet.resnet import resnet34, Resnet3d_cls
             base_model = resnet34(output_type='classification')
             if train_type == 'pre_trained':
                 model_file ='/disk1/MedicalNet_pytorch_files/pretrain/resnet_34.pth'
@@ -119,7 +120,7 @@ for train_time in range(train_times):
                 base_model.load_state_dict(state_dict, strict=False)
             model = Resnet3d_cls(base_model=base_model, n_class=num_class, block_type='BasicBlock', add_dense1=True)
         if model_name == 'medical_net_resnet50':
-            from libs.neural_networks.MedicalNet.resnet import resnet50, Resnet3d_cls
+            from libs.neural_networks.model.MedicalNet.resnet import resnet50, Resnet3d_cls
             base_model = resnet50(output_type='classification')
             if train_type == 'pre_trained':
                 model_file ='/disk1/MedicalNet_pytorch_files/pretrain/resnet_50.pth'
@@ -127,7 +128,7 @@ for train_time in range(train_times):
                 base_model.load_state_dict(state_dict, strict=False)
             model = Resnet3d_cls(base_model=base_model, n_class=num_class, block_type='Bottleneck', add_dense1=True)
         if model_name == 'medical_net_resnet101':
-            from libs.neural_networks.MedicalNet.resnet import resnet101, Resnet3d_cls
+            from libs.neural_networks.model.MedicalNet.resnet import resnet101, Resnet3d_cls
             base_model = resnet101(output_type='classification')
             if train_type == 'transfer_learning':
                 model_file ='/disk1/MedicalNet_pytorch_files/pretrain/resnet_101.pth'
@@ -136,8 +137,9 @@ for train_time in range(train_times):
             model = Resnet3d_cls(base_model=base_model, n_class=num_class, block_type='Bottleneck', add_dense1=True)
         #endregion
 
-        #region model_3d  [10, 18, 34, 50, 101, 152, 200]
-        from libs.neural_networks.model_3d.resnet import generate_model
+        '''
+        #model_3d  [10, 18, 34, 50, 101, 152, 200]
+        from libs.neural_networks.model.model_3d.resnet import generate_model
         if model_name == 'resnet18':
             model = generate_model(model_depth=18, n_classes=num_class, n_input_channels=1)
         if model_name == 'resnet34':
@@ -147,7 +149,7 @@ for train_time in range(train_times):
         if model_name == 'resnet101':
             model = generate_model(model_depth=101, n_classes=num_class, n_input_channels=1)
 
-        #endregion
+        '''
 
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         loss_class_weights = torch.FloatTensor(class_weights)
@@ -156,7 +158,7 @@ for train_time in range(train_times):
             loss_class_weights = loss_class_weights.cuda()
         label_smoothing = 0
         if label_smoothing > 0:
-            from libs.loss.my_label_smoothing import LabelSmoothLoss
+            from libs.neural_networks.loss.my_label_smoothing import LabelSmoothLoss
             criterion = LabelSmoothLoss(class_weight=loss_class_weights, smoothing=label_smoothing)
         else:
             criterion = nn.CrossEntropyLoss(weight=loss_class_weights)
@@ -173,7 +175,7 @@ for train_time in range(train_times):
               criterion=criterion, optimizer=optimizer, scheduler=scheduler,
               epochs_num=epochs_num, log_interval_train=10,
               loader_valid=loader_valid, loader_test=loader_test,
-              save_model_dir=os.path.join(save_model_dir, model_name, str(train_time))
+              save_model_dir=os.path.join(save_model_dir, model_name, str(train_time)),
               )
 
     del model

@@ -179,13 +179,15 @@ class Dataset_CSV_test(Dataset):
         array_4d = array_4d.astype(np.float32)
         array_4d = array_4d / 255.
 
-        tensor_x = torch.from_numpy(array_4d)
+        # https://pytorch.org/docs/stable/data.html
+        # It is generally not recommended to return CUDA tensors in multi-process loading because of many subtleties in using CUDA and sharing CUDA tensors in multiprocessing (see CUDA in multiprocessing).
+        # tensor_x = torch.from_numpy(array_4d)
 
         if self.test_mode:
-            return tensor_x
+            return array_4d
         else:
             label = int(self.df.iloc[index][1])
-            return tensor_x, label
+            return array_4d, label
 
     def __len__(self):
         return len(self.df)
