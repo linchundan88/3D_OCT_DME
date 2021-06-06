@@ -5,14 +5,14 @@ import cv2
 import os
 
 
-def resize_images_dir(source_dir='', dest_dir='', p_image_to_square=False,
-                      image_shape=(299, 299)):
+def resize_images(source_dir='', dest_dir='', p_image_to_square=False,
+                  image_shape=(299, 299)):
     if not source_dir.endswith('/'):
         source_dir += '/'
     if not dest_dir.endswith('/'):
         dest_dir += '/'
 
-    for dir_path, subpaths, files in os.walk(source_dir, False):
+    for dir_path, _, files in os.walk(source_dir, False):
         for f in files:
             image_file_source = os.path.join(dir_path, f)
             file_base, file_ext = os.path.splitext(image_file_source)  # 分离文件名与扩展名
@@ -95,13 +95,13 @@ def image_to_square(image1, image_size=None, grayscale=False):
     return image1
 
 
-def image_to_square_dir(source_dir, dest_dir, image_size=None, grayscale=False):
+def images_to_square(source_dir, dest_dir, image_size=None, grayscale=False):
     if not source_dir.endswith('/'):
         source_dir = source_dir + '/'
     if not dest_dir.endswith('/'):
         dest_dir = dest_dir + '/'
 
-    for dir_path, subpaths, files in os.walk(source_dir, False):
+    for dir_path, _, files in os.walk(source_dir, False):
         for f in files:
             image_file_source = os.path.join(dir_path, f)
 

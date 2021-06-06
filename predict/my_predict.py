@@ -19,7 +19,7 @@ model_name = 'ModelsGenesis'
 
 #region define model
 if model_name == 'ModelsGenesis':
-    from libs.neural_networks.model.ModelsGenesis.cls3d import Cls_3d
+    from libs.neural_networks.model.cls_3d import Cls_3d
     model = Cls_3d(n_class=num_class)
 
 if model_name == 'medical_net_resnet34':
@@ -68,7 +68,7 @@ for image_file, label_gt, prob in \
     if label_gt != label_predict:
         image_file = image_file.replace(dir_preprocess, dir_original)
         dir_base = os.path.dirname(image_file)
-        for dir_path, subpaths, files in os.walk(dir_base, False):
+        for dir_path, _, files in os.walk(dir_base, False):
             for f in files:
                 file_name_full = os.path.join(dir_path, f)
                 _, filaname = os.path.split(file_name_full)

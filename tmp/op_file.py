@@ -5,14 +5,14 @@ dir1 = '/disk1/3D_OCT_DME/original/Topocon/3D_OCT_DME_confusion_files_2021_2_17'
 dir2 = '/disk1/3D_OCT_DME/original/Topocon/Topocon'
 
 def del_dir(dir1, dir_name_last):
-    for dir_path, subpaths, files in os.walk(dir1, False):
+    for dir_path, _, files in os.walk(dir1, False):
         if dir_name_last == dir_path.split('/')[-1]:
             print(f'del dir:{dir_path}')
             shutil.rmtree(dir_path)
 
 #
 # 'M0_ M1_ M2_
-for dir_path, subpaths, files in os.walk(dir1, False):
+for dir_path, _, files in os.walk(dir1, False):
     dir_name_last = dir_path.split('/')[-1]
     if dir_name_last.startswith('M0-'):
         label_gt = 'M0'

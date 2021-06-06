@@ -134,7 +134,7 @@ def split_dataset_by_pat_id(filename_csv_or_df, match_type='OCT',
 def get_list_patient_id(dir, del_sha1_header=False):
     list_patient_id = []
 
-    for dir_path, subpaths, files in os.walk(dir, False):
+    for dir_path, _, files in os.walk(dir, False):
         for f in files:
             img_file_source = os.path.join(dir_path, f)
             if not '/original/' in img_file_source:

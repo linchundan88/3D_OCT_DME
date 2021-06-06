@@ -48,7 +48,7 @@ def write_csv_based_on_dir(filename_csv, base_dir, dict_mapping, match_type='hea
         csv_writer = csv.writer(csvfile, delimiter=',')
         csv_writer.writerow(['images', 'labels'])
 
-        for dir_path, subpaths, files in os.walk(base_dir, False):
+        for dir_path, _, files in os.walk(base_dir, False):
             for f in files:
                 img_file_source = os.path.join(dir_path, f)
 
@@ -353,7 +353,7 @@ def write_csv_dir_nolabel(filename_csv, base_dir, replace_dir=False):
         csv_writer = csv.writer(csvfile, delimiter=',')
         csv_writer.writerow(['images', 'labels'])
 
-        for dir_path, subpaths, files in os.walk(base_dir, False):
+        for dir_path, _, files in os.walk(base_dir, False):
             for f in files:
                 img_file_source = os.path.join(dir_path, f)
 

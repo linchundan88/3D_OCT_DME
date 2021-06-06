@@ -60,13 +60,13 @@ num_class = df['labels'].nunique(dropna=True)
 
 from torch.utils.data.sampler import WeightedRandomSampler
 list_class_samples = []
-for label in range(num_class):
-    list_class_samples.append(len(df[df['labels'] == label]))
+# for label in range(num_class):
+#     list_class_samples.append(len(df[df['labels'] == label]))
 # sample_class_weights = 1 / np.power(list_class_samples, 0.5)
-sample_class_weights = [1, 3]
+sampling_class_weights = [1, 3]
 sample_weights = []
 for label in df['labels']:
-    sample_weights.append(sample_class_weights[label])
+    sample_weights.append(sampling_class_weights[label])
 sampler = WeightedRandomSampler(weights=sample_weights, num_samples=len(df))
 
 batch_size_train, batch_size_valid = 32, 32
@@ -83,7 +83,7 @@ ds_test = Dataset_CSV_test(csv_file=csv_test, image_shape=image_shape,
 loader_test = DataLoader(ds_test, batch_size=batch_size_valid,
                             pin_memory=True, num_workers=num_workers)
 
-class_weights = [1, 2.5]
+loss_class_weights = [1, 2.5]
 #endregion
 
 #region training
@@ -103,7 +103,7 @@ for train_time in range(train_times):
                 base_model.load_state_dict(state_dict, strict=False)
             model = TargetNet(base_model, n_class=num_class)
             '''
-            from libs.neural_networks.model.ModelsGenesis.cls3d import Cls_3d
+            from libs.neural_networks.model.cls_3d import Cls_3d
             model = Cls_3d(n_class=num_class)
             if train_type == 'pre_trained':
                 model_file = '/disk1/Models_Genesis/Genesis_Chest_CT.pt'
@@ -152,7 +152,7 @@ for train_time in range(train_times):
         '''
 
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        loss_class_weights = torch.FloatTensor(class_weights)
+        loss_class_weights = torch.FloatTensor(loss_class_weights)
         if torch.cuda.device_count() > 0:
             model.to(device)
             loss_class_weights = loss_class_weights.cuda()

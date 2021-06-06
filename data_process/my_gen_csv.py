@@ -2,15 +2,15 @@ import os
 from libs.data_preprocess.my_data import write_images_labels_csv, write_csv_based_on_dir
 from libs.data_preprocess.my_data_patiend_id import split_dataset_by_pat_id
 
-train_type = '3D_OCT_DME'
+task_type = '3D_OCT_DME'
 #zeiss  ZEISS ,Topocon
 dict_mapping = {'M0': 0, 'M1': 1, 'M2': 1}
-dir_original = '/disk1/3D_OCT_DME/preprocess/128_128_128/Topocon'
-data_version = 'v1_topocon_128_128_128'
+dir_process = '/disk1/3D_OCT_DME/preprocess/128_128_128/'
+data_version = 'v2'
 
 csv_all = os.path.abspath(os.path.join(os.path.abspath('..'),
-            'datafiles', data_version, train_type + '.csv'))
-write_csv_based_on_dir(csv_all, dir_original, dict_mapping,
+            'datafiles', data_version, task_type + '.csv'))
+write_csv_based_on_dir(csv_all, dir_process, dict_mapping,
                        match_type='partial', list_file_ext=['.npy', '.NPY'])
 
 
@@ -20,11 +20,11 @@ files_train, labels_train, files_valid, labels_valid, files_test, labels_test = 
                             valid_ratio=0.15, test_ratio=0.15, random_state=111)
 
 csv_train = os.path.abspath(os.path.join(os.path.abspath('..'),
-            'datafiles', data_version, train_type + '_split_patid_train.csv'))
+            'datafiles', data_version, task_type + '_split_patid_train.csv'))
 csv_valid = os.path.abspath(os.path.join(os.path.abspath('..'),
-            'datafiles', data_version, train_type + '_split_patid_valid.csv'))
+            'datafiles', data_version, task_type + '_split_patid_valid.csv'))
 csv_test = os.path.abspath(os.path.join(os.path.abspath('..'),
-            'datafiles', data_version, train_type + '_split_patid_test.csv'))
+            'datafiles', data_version, task_type + '_split_patid_test.csv'))
 
 write_images_labels_csv(files_train, labels_train,
                         filename_csv=csv_train)
@@ -57,6 +57,17 @@ OK
 
 
 '''
+
+
+#region no diabetes
+dict_mapping = {'M0_no_diabetes': 0}
+dir_process = '/disk1/3D_OCT_DME/preprocess/128_128_128/ZEISS/M0_no_diabetes'
+csv_M0_no_diabetes = os.path.abspath(os.path.join(os.path.abspath('..'),
+            'datafiles', data_version, task_type + '_no_diabetes.csv'))
+write_csv_based_on_dir(csv_M0_no_diabetes, dir_process, dict_mapping,
+                       match_type='partial', list_file_ext=['.npy', '.NPY'])
+#endregion
+
 
 print('OK')
 

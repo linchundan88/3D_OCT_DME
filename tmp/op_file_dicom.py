@@ -5,7 +5,7 @@ dir1 = '/disk1/3D_OCT_DME/original/Topocon/3D_OCT_DME_confusion_files_2021_2_17'
 dir2 = '/disk1/3D_OCT_DME/Topocon_dicom/'
 
 # 'M0_ M1_ M2_
-for dir_path, subpaths, files in os.walk(dir1, False):
+for dir_path, _, files in os.walk(dir1, False):
     filename_base = dir_path.split('/')[-1]
     if filename_base.startswith('M0-'):
         label_gt = 'M0'

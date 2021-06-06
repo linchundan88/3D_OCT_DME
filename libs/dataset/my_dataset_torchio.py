@@ -10,7 +10,7 @@ import random
 
 
 class Dataset_CSV_train(Dataset):
-    def __init__(self, csv_file, channel_first=True, image_shape=None, test_mode=False,
+    def __init__(self, csv_file, channel_first=True, image_shape=None,
                  resample_ratio=(1, 1, 1),
                  depth_interval=2,
                  crop_pad_pixel=15, crop_pad_ratio=(3, 9),
@@ -23,7 +23,6 @@ class Dataset_CSV_train(Dataset):
         self.image_shape = image_shape
         self.imgaug_iaa = imgaug_iaa
         self.channel_first = channel_first
-        self.test_mode = test_mode
 
         self.resample_ratio = resample_ratio
         self.depth_interval = depth_interval
@@ -117,12 +116,9 @@ class Dataset_CSV_train(Dataset):
         array_4d = array_4d / 255.
 
         tensor_x = torch.from_numpy(array_4d)
+        label = int(self.df.iloc[index][1])
 
-        if self.test_mode:
-            return tensor_x
-        else:
-            label = int(self.df.iloc[index][1])
-            return tensor_x, label
+        return tensor_x, label
 
     def __len__(self):
         return len(self.df)
@@ -155,8 +151,7 @@ class Dataset_CSV_test(Dataset):
         if (self.image_shape is None) or \
                 (array_3d.shape[1:3]) == (self.image_shape[0:2]):  # (H,W)
                 array_4d = np.expand_dims(array_3d, axis=-1)  #(D,H,W,C)
-
-        if 'array_4d' not in locals().keys():
+        else:
             list_images = []
             for i in range(array_3d.shape[0]):
                 img = array_3d[i, :, :]  #(H,W)

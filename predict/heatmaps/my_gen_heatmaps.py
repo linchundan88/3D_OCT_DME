@@ -27,7 +27,7 @@ image_shape = (64, 64)
 
 #region laod model
 
-from libs.neural_networks.model.ModelsGenesis.cls3d import Cls_3d
+from libs.neural_networks.model.cls_3d import Cls_3d
 num_class = 2
 model = Cls_3d(n_class=num_class)
 model_file = '/tmp2/2020_5_15/v1_topocon_128_128_128/ModelsGenesis/0/epoch12.pth'

@@ -95,7 +95,7 @@ def dicom_save_dirs(source_dir, dir_dest_base,
                     padding_square=True,
                     depth_interval=1, remainder=0):
 
-    for dir_path, subpaths, files in os.walk(source_dir, False):
+    for dir_path, _, files in os.walk(source_dir, False):
         for f in files:
             file_dicom = os.path.join(dir_path, f)
             if not is_oct_file(file_dicom):
@@ -140,33 +140,38 @@ def dicom_save_dirs(source_dir, dir_dest_base,
 
 def slices_to_npy(dir1, depth_ratio=1, remainder=0, slice_num=128):
 
-    for dir_path, subpaths, files in os.walk(dir1, False):
+    for root, dirs, _ in os.walk(dir1, False):
         #zesis 1.jpeg, topocon 0.png
-        if os.path.exists(os.path.join(dir_path, '1.jpeg')) \
-                or os.path.exists(os.path.join(dir_path, '0.png')):
+        for dir_tmp in dirs:
+            dir_path = os.path.join(root, dir_tmp)
+            if os.path.exists(os.path.join(dir_path, '1.jpeg')) \
+                    or os.path.exists(os.path.join(dir_path, '0.png')):
 
-            list_images = []
-            for i in range(slice_num):
-                if i % depth_ratio == remainder:
-                    if os.path.exists(os.path.join(dir_path, f'{str(i)}.png')):
-                        img_file = os.path.join(dir_path,  f'{str(i)}.png')
-                    elif os.path.exists(os.path.join(dir_path, f'{str(i+1)}.jpeg')):
-                        img_file = os.path.join(dir_path, f'{str(i+1)}.jpeg')
-                    else:
-                        # raise Exception(f'file not found:{img_file}')
-                        break
+                print(dir_path)
 
-                    img1 = cv2.imread(img_file, cv2.IMREAD_GRAYSCALE) #(H,W)
-                    list_images.append(img1)
+                list_images = []
+                for i in range(slice_num):
+                    if i % depth_ratio == remainder:
+                        if os.path.exists(os.path.join(dir_path, f'{str(i)}.png')):
+                            img_file = os.path.join(dir_path,  f'{str(i)}.png')
+                        elif os.path.exists(os.path.join(dir_path, f'{str(i+1)}.jpeg')):
+                            img_file = os.path.join(dir_path, f'{str(i+1)}.jpeg')
+                        else:
+                            # raise Exception(f'file not found:{img_file}')
+                            break
 
-            assert len(list_images) == slice_num, f'dir_path error.'
+                        img1 = cv2.imread(img_file, cv2.IMREAD_GRAYSCALE) #(H,W)
+                        list_images.append(img1)
 
-            images = np.stack(list_images, axis=0)  #(H,W)->(D,H,W)
+                if len(list_images) != slice_num:
+                    print(f'error:{dir_path}')
 
-            pat_id = dir_path.split('/')[-1]
-            if depth_ratio == 1 and remainder == 0:
-                file_npy = os.path.join(dir_path, pat_id + '.npy')
-            else:
-                file_npy = os.path.join(dir_path, pat_id + f'_d{depth_ratio}_r{str(remainder)}.npy')
-            # print(file_npy)
-            np.save(file_npy, images)
+                images = np.stack(list_images, axis=0)  #(H,W)->(D,H,W)
+
+                pat_id = dir_path.split('/')[-1]
+                if depth_ratio == 1 and remainder == 0:
+                    file_npy = os.path.join(dir_path, pat_id + '.npy')
+                else:
+                    file_npy = os.path.join(dir_path, pat_id + f'_d{depth_ratio}_r{str(remainder)}.npy')
+                # print(file_npy)
+                np.save(file_npy, images)
