@@ -5,18 +5,24 @@ import os
 import torch
 import torch.nn as nn
 from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
+from torch.cuda.amp import autocast
+from torch.cuda.amp import GradScaler
 
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+#amp:AUTOMATIC MIXED PRECISION
 def train(model, loader_train, criterion, optimizer, scheduler, epochs_num,
-          log_interval_train=10, log_interval_valid=None,
+          amp=False, log_interval_train=10, log_interval_valid=None,
           save_model_dir=None, save_jit=False,
           loader_valid=None, loader_test=None, accumulate_grads_times=None):
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     if torch.cuda.device_count() > 0:
         model.to(device)
     if torch.cuda.device_count() > 1:
         model = nn.DataParallel(model)
+
+    if amp:
+        scaler = GradScaler()
 
     for epoch in range(epochs_num):
         print(f'Epoch {epoch}/{epochs_num - 1}')
@@ -28,17 +34,32 @@ def train(model, loader_train, criterion, optimizer, scheduler, epochs_num,
         for batch_idx, (inputs, labels) in enumerate(loader_train):
             inputs = inputs.to(device)
             labels = labels.to(device)
-            outputs = model(inputs)
-            loss = criterion(outputs, labels)
+            if not amp:
+                outputs = model(inputs)
+                loss = criterion(outputs, labels)
+            else:
+                with autocast():
+                    outputs = model(inputs)
+                    loss = criterion(outputs, labels)
 
             if accumulate_grads_times is None:
-                loss.backward()
-                optimizer.step()
+                if not amp:
+                    loss.backward()
+                    optimizer.step()
+                else:
+                    scaler.scale(loss).backward()
+                    scaler.step(optimizer)
+                    scaler.update()
                 optimizer.zero_grad()
             else:
                 if batch_idx % accumulate_grads_times == 0:
-                    loss.backward()
-                    optimizer.step()
+                    if not amp:
+                        loss.backward()
+                        optimizer.step()
+                    else:
+                        scaler.scale(loss).backward()
+                        scaler.step(optimizer)
+                        scaler.update()
                     optimizer.zero_grad()
 
             # statistics
@@ -86,8 +107,9 @@ def train(model, loader_train, criterion, optimizer, scheduler, epochs_num,
                 torch.jit.save(scripted_module, save_model_file)
                 #model = torch.jit.load(model_file_saved)
             else:
-                print('save model:', save_model_file)
                 save_model_file = os.path.join(save_model_dir, f'epoch{epoch}.pth')
+                os.makedirs(os.path.dirname(save_model_file), exist_ok=True)
+                print('save model:', save_model_file)
                 try:
                     state_dict = model.module.state_dict()
                 except AttributeError:
@@ -98,10 +120,8 @@ def train(model, loader_train, criterion, optimizer, scheduler, epochs_num,
 
 @torch.no_grad()
 def validate(model, dataloader, criterion, log_interval=None):
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     model.eval()
-
     epoch_loss, epoch_sample_num, epoch_corrects = 0, 0, 0
     running_loss, running_sample_num, running_corrects = 0, 0, 0
     list_labels, list_preds = [], []
@@ -134,7 +154,6 @@ def validate(model, dataloader, criterion, log_interval=None):
 
 @torch.no_grad()
 def test(model, dataloader, log_interval=None):
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     model.eval()
     running_sample_num, running_corrects = 0, 0

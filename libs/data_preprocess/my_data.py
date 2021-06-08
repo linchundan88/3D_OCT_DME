@@ -51,12 +51,10 @@ def write_csv_based_on_dir(filename_csv, base_dir, dict_mapping, match_type='hea
         for dir_path, _, files in os.walk(base_dir, False):
             for f in files:
                 img_file_source = os.path.join(dir_path, f)
-
                 (filedir, tempfilename) = os.path.split(img_file_source)
                 (filename, extension) = os.path.splitext(tempfilename)
-
                 if extension.upper() not in list_file_ext:
-                    print('file ext name:', f)
+                    # print('file ext name:', f)
                     continue
 
                 if not filedir.endswith('/'):

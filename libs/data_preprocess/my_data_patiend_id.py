@@ -32,7 +32,7 @@ def get_pat_id_oct(full_filename):
     return pat_id
 
 
-def split_dataset_by_pat_id(filename_csv_or_df, match_type='OCT',
+def split_dataset_by_pat_id(filename_csv_or_df,
                             valid_ratio=0.1, test_ratio=None, shuffle=True, random_state=None):
 
     if isinstance(filename_csv_or_df, str):
@@ -50,11 +50,8 @@ def split_dataset_by_pat_id(filename_csv_or_df, match_type='OCT',
 
     for _, row in df.iterrows():
         filename = row['images']
-        assert match_type in ['OCT', 'fundus'], 'get patiend id type error!'
-        if match_type == 'OCT':
-            pat_id = get_pat_id_oct(filename)
-        else:
-            pat_id = get_pat_id_fundus(filename)
+
+        pat_id = get_pat_id_oct(filename)
 
         print(pat_id, filename)
         if pat_id not in list_patient_id:
@@ -76,10 +73,7 @@ def split_dataset_by_pat_id(filename_csv_or_df, match_type='OCT',
             image_file = row['images']
             image_labels = row['labels']
 
-            if match_type == 'OCT':
-                pat_id = get_pat_id_oct(filename)
-            else:
-                pat_id = get_pat_id_fundus(filename)
+            pat_id = get_pat_id_oct(filename)
 
             if pat_id in list_patient_id_train:
                 train_files.append(image_file)
@@ -110,10 +104,7 @@ def split_dataset_by_pat_id(filename_csv_or_df, match_type='OCT',
             image_labels = row['labels']
             _, filename = os.path.split(image_file)
 
-            if match_type == 'OCT':
-                pat_id = get_pat_id_oct(filename)
-            else:
-                pat_id = get_pat_id_fundus(filename)
+            pat_id = get_pat_id_oct(filename)
 
             if pat_id in list_patient_id_train:
                 train_files.append(image_file)

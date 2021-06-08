@@ -12,31 +12,23 @@ from torch.optim.lr_scheduler import StepLR
 from libs.dataset.my_dataset_torchio import Dataset_CSV_train, Dataset_CSV_test
 from torch.utils.data import DataLoader
 from libs.neural_networks.helper.my_train import train
+from libs.neural_networks.model.my_get_model import get_model
 
 
 #region prepare dataset
 task_type = '3D_OCT_DME'
 image_shape = (64, 64)
 data_version = 'v1_topocon_128_128_128'
+data_version = 'v2'
 csv_train = os.path.join(os.path.abspath('..'),
-                'datafiles', data_version, f'{task_type}_split_patid_train.csv')
+                'datafiles', data_version, f'{task_type}_train.csv')
 csv_valid = os.path.join(os.path.abspath('..'),
-                'datafiles', data_version, f'{task_type}_split_patid_valid.csv')
+                'datafiles', data_version, f'{task_type}_valid.csv')
 csv_test = os.path.join(os.path.abspath('..'),
-                'datafiles', data_version, f'{task_type}_split_patid_test.csv'.format(data_version))
+                'datafiles', data_version, f'{task_type}_test.csv'.format(data_version))
 
 '''
-v1_topocon_128_128_128
 
-3327
-0 3039
-1 288
-705
-0 645
-1 60
-731
-0 682
-1 49
 
 '''
 
@@ -59,18 +51,19 @@ df = pd.read_csv(csv_train)
 num_class = df['labels'].nunique(dropna=True)
 
 from torch.utils.data.sampler import WeightedRandomSampler
-list_class_samples = []
+# list_class_samples = []
 # for label in range(num_class):
 #     list_class_samples.append(len(df[df['labels'] == label]))
-# sample_class_weights = 1 / np.power(list_class_samples, 0.5)
-sampling_class_weights = [1, 3]
-sample_weights = []
+# sampling_class_weights = 1 / np.power(list_class_samples, 0.5)
+sampling_weights = []
+sampling_class_weights = [1, 2]
 for label in df['labels']:
-    sample_weights.append(sampling_class_weights[label])
-sampler = WeightedRandomSampler(weights=sample_weights, num_samples=len(df))
+    sampling_weights.append([1, 2][label])
+sampler = WeightedRandomSampler(weights=sampling_weights, num_samples=len(df))
 
 batch_size_train, batch_size_valid = 32, 32
 num_workers = 4  #recommend num_workers = the number of gpus * 4
+
 ds_train = Dataset_CSV_train(csv_file=csv_train, image_shape=image_shape)
 loader_train = DataLoader(ds_train, batch_size=batch_size_train,
                           sampler=sampler, pin_memory=True, num_workers=num_workers)
@@ -83,28 +76,20 @@ ds_test = Dataset_CSV_test(csv_file=csv_test, image_shape=image_shape,
 loader_test = DataLoader(ds_test, batch_size=batch_size_valid,
                             pin_memory=True, num_workers=num_workers)
 
-loss_class_weights = [1, 2.5]
+loss_weights = [1, 2]
 #endregion
 
 #region training
-save_model_dir = f'/tmp2/2020_5_15/{data_version}'
+save_model_dir = f'/tmp2/2021_6_8/{data_version}'
 train_times = 1
 train_type = 'pre_trained' #scratch, pre_trained
 
 for train_time in range(train_times):
-    for model_name in ['ModelsGenesis']:
-        if model_name == 'ModelsGenesis':
-            '''
-            from libs.neural_networks.ModelsGenesis.unet3d import UNet3D, TargetNet
-            base_model = UNet3D()
-            if train_type == 'transfer_learning':
-                model_file = '/disk1/Models_Genesis/Genesis_Chest_CT.pt'
-                state_dict = torch.load(model_file, map_location='cpu')
-                base_model.load_state_dict(state_dict, strict=False)
-            model = TargetNet(base_model, n_class=num_class)
-            '''
-            from libs.neural_networks.model.cls_3d import Cls_3d
-            model = Cls_3d(n_class=num_class)
+    for model_name in ['medical_net_resnet50']:
+
+        model = get_model(model_name, num_class=num_class)
+
+        if model_name == 'Cls_3d':
             if train_type == 'pre_trained':
                 model_file = '/disk1/Models_Genesis/Genesis_Chest_CT.pt'
                 state_dict = torch.load(model_file, map_location='cpu')
@@ -112,69 +97,55 @@ for train_time in range(train_times):
 
         #region medical net
         if model_name == 'medical_net_resnet34':
-            from libs.neural_networks.model.MedicalNet.resnet import resnet34, Resnet3d_cls
-            base_model = resnet34(output_type='classification')
             if train_type == 'pre_trained':
                 model_file ='/disk1/MedicalNet_pytorch_files/pretrain/resnet_34.pth'
                 state_dict = torch.load(model_file, map_location='cpu')
-                base_model.load_state_dict(state_dict, strict=False)
-            model = Resnet3d_cls(base_model=base_model, n_class=num_class, block_type='BasicBlock', add_dense1=True)
+                model.load_state_dict(state_dict, strict=False)
         if model_name == 'medical_net_resnet50':
-            from libs.neural_networks.model.MedicalNet.resnet import resnet50, Resnet3d_cls
-            base_model = resnet50(output_type='classification')
             if train_type == 'pre_trained':
                 model_file ='/disk1/MedicalNet_pytorch_files/pretrain/resnet_50.pth'
                 state_dict = torch.load(model_file, map_location='cpu')
-                base_model.load_state_dict(state_dict, strict=False)
-            model = Resnet3d_cls(base_model=base_model, n_class=num_class, block_type='Bottleneck', add_dense1=True)
+                model.load_state_dict(state_dict, strict=False)
+
         if model_name == 'medical_net_resnet101':
-            from libs.neural_networks.model.MedicalNet.resnet import resnet101, Resnet3d_cls
-            base_model = resnet101(output_type='classification')
             if train_type == 'transfer_learning':
                 model_file ='/disk1/MedicalNet_pytorch_files/pretrain/resnet_101.pth'
                 state_dict = torch.load(model_file, map_location='cpu')
-                base_model.load_state_dict(state_dict, strict=False)
-            model = Resnet3d_cls(base_model=base_model, n_class=num_class, block_type='Bottleneck', add_dense1=True)
+                model.load_state_dict(state_dict, strict=False)
+
         #endregion
 
-        '''
-        #model_3d  [10, 18, 34, 50, 101, 152, 200]
-        from libs.neural_networks.model.model_3d.resnet import generate_model
-        if model_name == 'resnet18':
-            model = generate_model(model_depth=18, n_classes=num_class, n_input_channels=1)
-        if model_name == 'resnet34':
-            model = generate_model(model_depth=32, n_classes=num_class, n_input_channels=1)
-        if model_name == 'resnet50':
-            model = generate_model(model_depth=50, n_classes=num_class, n_input_channels=1)
-        if model_name == 'resnet101':
-            model = generate_model(model_depth=101, n_classes=num_class, n_input_channels=1)
-
+        '''        
+        if model_name == 'ModelsGenesis':
+            if train_type == 'transfer_learning':
+                model_file = '/disk1/Models_Genesis/Genesis_Chest_CT.pt'
+                state_dict = torch.load(model_file, map_location='cpu')
+                model.load_state_dict(state_dict, strict=False)
         '''
 
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        loss_class_weights = torch.FloatTensor(loss_class_weights)
+
+        loss_weights = torch.FloatTensor(loss_weights)
         if torch.cuda.device_count() > 0:
-            model.to(device)
-            loss_class_weights = loss_class_weights.cuda()
+            loss_weights = loss_weights.cuda()
         label_smoothing = 0
         if label_smoothing > 0:
             from libs.neural_networks.loss.my_label_smoothing import LabelSmoothLoss
-            criterion = LabelSmoothLoss(class_weight=loss_class_weights, smoothing=label_smoothing)
+            criterion = LabelSmoothLoss(class_weight=loss_weights, smoothing=label_smoothing)
         else:
-            criterion = nn.CrossEntropyLoss(weight=loss_class_weights)
+            criterion = nn.CrossEntropyLoss(weight=loss_weights)
 
         optimizer = optim.Adam(model.parameters(), weight_decay=0, lr=0.001)
         # from libs.neural_networks.my_optimizer import Lookahead
         # optimizer = Lookahead(optimizer=optimizer, k=5, alpha=0.5)
-
-        scheduler = StepLR(optimizer, step_size=4, gamma=0.3)
-        epochs_num = 20
+        scheduler = StepLR(optimizer, step_size=3, gamma=0.3)
+        epochs_num = 15
 
         train(model,
               loader_train=loader_train,
               criterion=criterion, optimizer=optimizer, scheduler=scheduler,
-              epochs_num=epochs_num, log_interval_train=10,
-              loader_valid=loader_valid, loader_test=loader_test,
+              epochs_num=epochs_num, amp=True, log_interval_train=10,
+              loader_valid=loader_valid,
+              loader_test=loader_test,
               save_model_dir=os.path.join(save_model_dir, model_name, str(train_time)),
               )
 

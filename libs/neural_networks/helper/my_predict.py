@@ -4,7 +4,7 @@ from torch import nn as nn
 from torch.nn import functional as F
 
 
-def predict(model, dataloader, log_interval=1, activation='softmax', argmax=True):
+def predict_single_model(model, dataloader, log_interval=1, activation='softmax', argmax=True):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     if torch.cuda.device_count() > 0:
         model.to(device)
@@ -34,3 +34,24 @@ def predict(model, dataloader, log_interval=1, activation='softmax', argmax=True
         return probs, labels_pd
     else:
         return probs
+
+
+
+def predict_multiple_models(models, weights, dataloader, log_interval=1, activation='softmax'):
+    list_probs = []
+    total_weights = 0
+
+    for (model, weight) in zip(models, weights):
+        probs = predict_single_model(model, dataloader, log_interval=log_interval, activation=activation, argmax=False)
+        list_probs.append(probs)
+        total_weights += weight
+        if 'final_probs' not in locals().keys():
+            final_probs = probs * weight
+        else:
+            final_probs += probs * weight
+
+    probs_ensembling = final_probs / total_weights
+
+    return list_probs, probs_ensembling
+
+

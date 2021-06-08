@@ -95,6 +95,11 @@ def dicom_save_dirs(source_dir, dir_dest_base,
                     padding_square=True,
                     depth_interval=1, remainder=0):
 
+    if source_dir.endswith('/'):
+        source_dir = source_dir[:-1]
+    if dir_dest_base.endswith('/'):
+        dir_dest_base += dir_dest_base[:-1]
+
     for dir_path, _, files in os.walk(source_dir, False):
         for f in files:
             file_dicom = os.path.join(dir_path, f)
@@ -106,14 +111,11 @@ def dicom_save_dirs(source_dir, dir_dest_base,
 
             array1 = get_dicom_array(file_dicom) #topocon (128,885,512) (D,H,W)
 
-            _, filename = os.path.split(file_dicom)
+            filename_dir, filename = os.path.split(file_dicom)
             filename_stem = os.path.splitext(filename)[0]
-            dir_dest = os.path.join(dir_dest_base, filename_stem)
+            dir_dest_tmp = os.path.join(dir_dest_base, filename_stem)
+            dir_dest = filename_dir.replace(source_dir, dir_dest_tmp)
 
-            pat_id = f.replace('.dcm', '')
-            pat_id = pat_id.replace('.DCM', '')
-            pat_id = pat_id.replace('.dicom', '')
-            pat_id = pat_id.replace('.dicom', '')
 
             if image_shape is not None:
                 array1 = crop_3d_topocon(array1,
@@ -122,16 +124,14 @@ def dicom_save_dirs(source_dir, dir_dest_base,
 
             if save_npy:
                 if depth_interval == 1 and remainder == 0:
-                    filename = os.path.join(dir_dest, pat_id + '.npy')
+                    filename = os.path.join(dir_dest, filename_stem + '.npy')
                 else:
-                    filename = os.path.join(dir_dest, pat_id + f'_d{depth_interval}_r{str(remainder)}.npy')
+                    filename = os.path.join(dir_dest, filename_stem + f'_d{depth_interval}_r{str(remainder)}.npy')
 
                 os.makedirs(os.path.dirname(filename), exist_ok=True)
                 np.save(filename, array1)
 
             if save_image_files:
-                array1 = crop_3d_topocon(array1,
-                                         image_shape=image_shape, padding_square=padding_square)
                 for i in range(array1.shape[0]):  # (D,H,W)
                     filename = os.path.join(dir_dest, f'{str(i)}.png')
                     os.makedirs(os.path.dirname(filename), exist_ok=True)
@@ -165,6 +165,7 @@ def slices_to_npy(dir1, depth_ratio=1, remainder=0, slice_num=128):
 
                 if len(list_images) != slice_num:
                     print(f'error:{dir_path}')
+                    continue
 
                 images = np.stack(list_images, axis=0)  #(H,W)->(D,H,W)
 
