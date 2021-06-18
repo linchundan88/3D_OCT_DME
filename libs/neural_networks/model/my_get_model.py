@@ -1,5 +1,6 @@
+import torch
 
-def get_model(model_name, num_class=2):
+def get_model(model_name, num_class=2, model_file=None):
     if model_name == 'Cls_3d':
         from libs.neural_networks.model.cls_3d import Cls_3d
         model = Cls_3d(n_class=num_class)
@@ -19,14 +20,11 @@ def get_model(model_name, num_class=2):
         model = Resnet3d_cls(base_model=base_model, n_class=num_class, block_type='Bottleneck', add_dense1=True)
     # endregion
 
-    '''
     if model_name == 'ModelsGenesis':
         from libs.neural_networks.model.ModelsGenesis.unet3d import UNet3D, TargetNet
         base_model = UNet3D()
         model = TargetNet(base_model, n_class=num_class)
-    '''
 
-    '''
     # region 3D ResNet  [10, 18, 34, 50, 101, 152, 200]
     from libs.neural_networks.model.model_3d.resnet import generate_model
     
@@ -39,6 +37,10 @@ def get_model(model_name, num_class=2):
     if model_name == 'resnet101':
         model = generate_model(model_depth=101, n_classes=num_class, n_input_channels=1)
     # endregion
-    '''
+
+
+    if model_file is not None:
+        state_dict = torch.load(model_file, map_location='cpu')
+        model.load_state_dict(state_dict, strict=False)
 
     return model

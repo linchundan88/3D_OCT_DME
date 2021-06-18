@@ -5,16 +5,17 @@ import os
 import torch
 import torch.nn as nn
 from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
-from torch.cuda.amp import autocast
-from torch.cuda.amp import GradScaler
+from torch.cuda.amp import autocast, GradScaler
+
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 #amp:AUTOMATIC MIXED PRECISION
 def train(model, loader_train, criterion, optimizer, scheduler, epochs_num,
-          amp=False, log_interval_train=10, log_interval_valid=None,
-          save_model_dir=None, save_jit=False,
-          loader_valid=None, loader_test=None, accumulate_grads_times=None):
+          amp=False, accumulate_grads_times=None,
+          log_interval_train=10, log_interval_valid=None,
+          loader_valid=None, loader_test=None,
+          save_model_dir=None, save_jit=False):
 
     if torch.cuda.device_count() > 0:
         model.to(device)
@@ -42,7 +43,9 @@ def train(model, loader_train, criterion, optimizer, scheduler, epochs_num,
                     outputs = model(inputs)
                     loss = criterion(outputs, labels)
 
-            if accumulate_grads_times is None:
+            if (accumulate_grads_times is None) or  \
+                    (accumulate_grads_times is not None and batch_idx % accumulate_grads_times == 0):
+                optimizer.zero_grad()
                 if not amp:
                     loss.backward()
                     optimizer.step()
@@ -50,19 +53,8 @@ def train(model, loader_train, criterion, optimizer, scheduler, epochs_num,
                     scaler.scale(loss).backward()
                     scaler.step(optimizer)
                     scaler.update()
-                optimizer.zero_grad()
-            else:
-                if batch_idx % accumulate_grads_times == 0:
-                    if not amp:
-                        loss.backward()
-                        optimizer.step()
-                    else:
-                        scaler.scale(loss).backward()
-                        scaler.step(optimizer)
-                        scaler.update()
-                    optimizer.zero_grad()
 
-            # statistics
+            # region batch statistics
             outputs = torch.softmax(outputs, dim=1)
             _, preds = torch.max(outputs, 1)
 
@@ -82,12 +74,13 @@ def train(model, loader_train, criterion, optimizer, scheduler, epochs_num,
                 if batch_idx % log_interval_train == log_interval_train - 1:
                     print(f'[epoch:{epoch}, batch:{batch_idx}] losses:{running_loss / log_interval_train:8.2f}, acc:{running_corrects / running_sample_num:8.2f}')
                     running_loss, running_corrects, running_sample_num = 0, 0, 0
+            #endregion
+
+        scheduler.step()
 
         print(f'epoch{epoch} losses:{epoch_loss / (batch_idx+1):8.2f}')
         print('Confusion Matrix of training dataset:', confusion_matrix(list_labels, list_preds))
         print(classification_report(list_labels, list_preds))
-
-        scheduler.step()
 
         if loader_valid:
             print('compute validation dataset...')
@@ -114,13 +107,11 @@ def train(model, loader_train, criterion, optimizer, scheduler, epochs_num,
                     state_dict = model.module.state_dict()
                 except AttributeError:
                     state_dict = model.state_dict()
-
                 torch.save(state_dict, save_model_file)
 
 
 @torch.no_grad()
 def validate(model, dataloader, criterion, log_interval=None):
-
     model.eval()
     epoch_loss, epoch_sample_num, epoch_corrects = 0, 0, 0
     running_loss, running_sample_num, running_corrects = 0, 0, 0
@@ -131,6 +122,8 @@ def validate(model, dataloader, criterion, log_interval=None):
         outputs = model(inputs)
         loss = criterion(outputs, labels)
 
+        # CrossEntropyLoss contains log_softmax and	nll_loss
+        # the following line can be eliminated, unless we want to show probs during validation.
         outputs = torch.softmax(outputs, dim=1)
         _, preds = torch.max(outputs, 1)
 
@@ -154,7 +147,6 @@ def validate(model, dataloader, criterion, log_interval=None):
 
 @torch.no_grad()
 def test(model, dataloader, log_interval=None):
-
     model.eval()
     running_sample_num, running_corrects = 0, 0
     list_labels, list_preds = [], []

@@ -1,3 +1,7 @@
+
+import os
+import sys
+sys.path.append(os.path.abspath('..'))
 from libs.img_preprocess.my_image_helper import resize_images
 from libs.dicom.my_dicom import slices_to_npy
 

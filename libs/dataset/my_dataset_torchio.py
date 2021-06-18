@@ -7,27 +7,29 @@ import albumentations as A
 import numpy as np
 import torchio as tio
 import random
+import math
 
 
 class Dataset_CSV_train(Dataset):
     def __init__(self, csv_file, channel_first=True, image_shape=None,
                  resample_ratio=(1, 1, 1),
                  depth_interval=2,
-                 crop_pad_pixel=15, crop_pad_ratio=(3, 9),
+                 random_crop_h=9, random_noise=0.2,
                  imgaug_iaa=None,
                  ):
         assert os.path.exists(csv_file), f'csv file {csv_file} does not exists'
         self.csv_file = csv_file
         self.df = pd.read_csv(csv_file)
         assert len(self.df) > 0, 'csv file is empty!'
+
         self.image_shape = image_shape
         self.imgaug_iaa = imgaug_iaa
         self.channel_first = channel_first
 
         self.resample_ratio = resample_ratio
         self.depth_interval = depth_interval
-        self.crop_pad_pixel = crop_pad_pixel
-        self.crop_pad_ratio = crop_pad_ratio
+        self.random_crop_h = random_crop_h
+        self.random_noise = random_noise
 
     def __getitem__(self, index):
         file_npy = self.df.iloc[index][0]
@@ -46,10 +48,11 @@ class Dataset_CSV_train(Dataset):
         )
         subjects_list = [subject1]
 
-        crop_a = random.randint(self.crop_pad_ratio[0], self.crop_pad_ratio[1])
-        crop_b = self.crop_pad_pixel - crop_a
-        pad_a = random.randint(self.crop_pad_ratio[0], self.crop_pad_ratio[1])
-        pad_b = self.crop_pad_pixel - pad_a
+        crop_h = random.randint(0, self.random_crop_h)
+        # pad_h_a, pad_h_b = math.floor(crop_h / 2), math.ceil(crop_h / 2)
+        pad_h_a = random.randint(0, crop_h)
+        pad_h_b = crop_h - pad_h_a
+
         transform_1 = tio.Compose([
             # tio.OneOf({
             #     tio.RandomAffine(): 0.8,
@@ -62,14 +65,14 @@ class Dataset_CSV_train(Dataset):
             #     scales=(0, 0, 0.9, 1.1, 0, 0), degrees=(0, 0, -5, 5, 0, 0),
             #     image_interpolation='nearest'),
 
-            tio.RandomNoise(std=(0, 0.1)),
-            tio.Crop(cropping=(0, 0, crop_a, crop_b, 0, 0)),  # (d,h,w) crop height
-            tio.Pad(padding=(0, 0, pad_a, pad_b, 0, 0)),
+            tio.Crop(cropping=(0, 0, crop_h, 0, 0, 0)),  # (d,h,w) crop height
+            tio.Pad(padding=(0, 0, pad_h_a, pad_h_b, 0, 0)),
+            tio.RandomNoise(std=(0, self.random_noise)),
             tio.Resample(self.resample_ratio),
             # tio.RescaleIntensity((0, 255))
         ])
 
-        if random.randint(1, 10) == 5:
+        if random.randint(1, 20) == 5:
             transform = tio.Compose([tio.Resample(self.resample_ratio)])
         else:
             transform = transform_1
@@ -114,8 +117,8 @@ class Dataset_CSV_train(Dataset):
 
         array_4d = array_4d.astype(np.float32)
         array_4d = array_4d / 255.
-        if array_4d.shape != (1, 64, 64, 64):
-            print(file_npy)
+        # if array_4d.shape != (1, 64, 64, 64):
+        #     print(file_npy)
 
         # https://pytorch.org/docs/stable/data.html
         # It is generally not recommended to return CUDA tensors in multi-process loading because of many subtleties in using CUDA and sharing CUDA tensors in multiprocessing (see CUDA in multiprocessing).
@@ -137,6 +140,7 @@ class Dataset_CSV_test(Dataset):
         self.csv_file = csv_file
         self.df = pd.read_csv(csv_file)
         assert len(self.df) > 0, 'csv file is empty!'
+
         self.image_shape = image_shape
         self.depth_start = depth_start
         self.depth_interval = depth_interval
@@ -153,8 +157,7 @@ class Dataset_CSV_test(Dataset):
         if not(self.depth_start != 0 and self.depth_interval != 1):
             array_3d = array_3d[self.depth_start::self.depth_interval, :, :]
 
-        if (self.image_shape is None) or \
-                (array_3d.shape[1:3]) == (self.image_shape[0:2]):  # (H,W)
+        if self.image_shape is None or array_3d.shape[1:3] == self.image_shape[0:2]:  # (H,W)
                 array_4d = np.expand_dims(array_3d, axis=-1)  #(D,H,W,C)
         else:
             list_images = []

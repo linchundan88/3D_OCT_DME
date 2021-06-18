@@ -3,7 +3,8 @@ warnings.filterwarnings("ignore")
 import os
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"] = "0,1"
-import torch
+import sys
+sys.path.append(os.path.abspath('..'))
 from torch.utils.data import DataLoader
 import pandas as pd
 from libs.dataset.my_dataset_torchio import Dataset_CSV_test
@@ -22,33 +23,27 @@ filename_csv = os.path.join(os.path.abspath('..'),
 num_class = 2
 
 list_models = []
-list_weights = [1, 1]
 
 model_name = 'Cls_3d'
-model = get_model(model_name, num_class)
 model_file = '/tmp2/2020_3_11/v1_topocon_128_128_128/ModelsGenesis/0/epoch13.pth'
-# save_model_dir = f'/tmp2/2020_5_15/{data_version}'
 model_file = '/tmp2/2021_6_6/v2/ModelsGenesis/0/epoch13.pth'
-state_dict = torch.load(model_file, map_location='cpu')
-model.load_state_dict(state_dict, strict=False)
+model = get_model(model_name, num_class, model_file=model_file)
 list_models.append(model)
 
 model_name = 'medical_net_resnet50'
-model = get_model(model_name, num_class)
 model_file = '/tmp2/2021_6_6/v2/medical_net_resnet50/0/epoch13.pth'
-state_dict = torch.load(model_file, map_location='cpu')
-model.load_state_dict(state_dict, strict=False)
+model = get_model(model_name, num_class, model_file=model_file)
 list_models.append(model)
 
+list_model_weights = [1, 1]
 
 image_shape = (64, 64)
 ds_test = Dataset_CSV_test(csv_file=filename_csv, image_shape=image_shape,
                            depth_start=0, depth_interval=2, test_mode=True)
 loader_test = DataLoader(ds_test, batch_size=32, pin_memory=True, num_workers=4)
 
-probs_final, probs_ensembling = predict_multiple_models(list_models, list_weights, loader_test)
+probs_final, probs_ensembling = predict_multiple_models(list_models, list_model_weights, loader_test)
 labels_pd = probs_ensembling.argmax(axis=-1)
-
 
 df = pd.read_csv(filename_csv)
 (image_files, labels) = list(df['images']), list(df['labels'])

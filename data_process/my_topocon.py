@@ -1,5 +1,7 @@
 
 import os
+import sys
+sys.path.append(os.path.abspath('..'))
 from libs.dicom.my_dicom import dicom_save_dirs
 
 source_dir_dicom = '/disk1/3D_OCT_DME/Topocon_dicom/'
