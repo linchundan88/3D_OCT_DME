@@ -10,27 +10,28 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--CUDA_VISIBLE_DEVICES')
 parser.add_argument('--task_type', default='3D_OCT_DME')
 parser.add_argument('--data_version', default='v2')
-parser.add_argument('--sampling_class_weights', default=(1, 2))
+parser.add_argument('--sampling_class_weights', default=(1, 2))  #dynamic resampling
 parser.add_argument('--model_name', default='Cls_3d') #medical_net_resnet50
-parser.add_argument('--train_type', default='pre_trained')
+parser.add_argument('--pre_trained', default=True)  #initialize weights from pre-trained model
 parser.add_argument('--image_shape', default=(64, 64))
-parser.add_argument('--loss_weights', default=(1, 2))
+parser.add_argument('--loss_weights', default=(1, 2))  #cost sensitive learning, weighted cross entropy
 parser.add_argument('--label_smoothing', default=0)
-parser.add_argument('--epochs_num', default=15)
+parser.add_argument('--amp', default=False)  #AUTOMATIC MIXED PRECISION
 #recommend num_workers = the number of gpus * 4, when debugging it should be set to 0.
 parser.add_argument('--num_workers', default=4)
 parser.add_argument('--batch_size_train', default=32)
 parser.add_argument('--batch_size_valid', default=32)
 parser.add_argument('--weight_decay', default=0)
+parser.add_argument('--epochs_num', default=15)
 parser.add_argument('--lr', default=0.001)
 parser.add_argument('--step_size', default=3)
 parser.add_argument('--gamma', default=0.3)
 parser.add_argument('--save_model_dir', default='/tmp2/2021_6_8/')
 
+parser.add_argument('--random_add', default=8)
 parser.add_argument('--random_crop_h', default=9)
-parser.add_argument('--random_crop_h', default=0.2)
+parser.add_argument('--random_noise', default=0.2)
 
-parser.add_argument('--amp', default=False)  #AUTOMATIC MIXED PRECISION
 
 args = parser.parse_args()
 
@@ -65,7 +66,7 @@ imgaug_iaa = iaa.Sequential([
     # iaa.MultiplyBrightness(mul=(0.8, 1.2)),
     # iaa.contrast.LinearContrast((0.8, 1.2)),
 
-    iaa.Sometimes(0.9, iaa.Add((-8, 8))),
+    iaa.Sometimes(0.9, iaa.Add((-args.random_add, args.random_add))),
     # iaa.Sometimes(0.9, iaa.Affine(
     #     scale=(0.98, 1.02),
     #     translate_percent={"x": (-0.06, 0.06), "y": (-0.06, 0.06)},
@@ -105,9 +106,7 @@ loader_test = DataLoader(ds_test, batch_size=args.batch_size_valid,
 
 #region define model
 
-if args.train_type != 'pre_trained':
-    model = get_model(args.model_name, num_class=num_class)
-else:
+if args.pre_trained:
     if args.model_name == 'Cls_3d':
         model_file = '/disk1/Models_Genesis/Genesis_Chest_CT.pt'
     if args.model_name == 'medical_net_resnet34':
@@ -120,8 +119,10 @@ else:
     if args.model_name == 'ModelsGenesis' :
         model_file = '/disk1/Models_Genesis/Genesis_Chest_CT.pt'
     '''
+else:
+    model_file = None
 
-    model = get_model(args.model_name, num_class=num_class, model_file=model_file)
+model = get_model(args.model_name, num_class=num_class, model_file=model_file)
 
 #endregion
 
@@ -134,7 +135,7 @@ if args.label_smoothing > 0:
     from libs.neural_networks.loss.my_label_smoothing import LabelSmoothLoss
     criterion = LabelSmoothLoss(class_weight=loss_weights, smoothing=args.label_smoothing)
 else:
-    criterion = nn.CrossEntropyLoss(weight=loss_weights)
+    criterion = nn.CrossEntropyLoss(weight=loss_weights, reduction='mean')
 
 optimizer = optim.Adam(model.parameters(), weight_decay=args.weight_decay, lr=args.lr)
 # from libs.neural_networks.my_optimizer import Lookahead

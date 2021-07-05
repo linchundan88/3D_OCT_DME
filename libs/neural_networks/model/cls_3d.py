@@ -49,7 +49,7 @@ def _make_nConv(in_channel, depth, act, double_chnnel=False):
 
 
 class DownTransition(nn.Module):
-    def __init__(self, in_channel,depth, act):
+    def __init__(self, in_channel, depth, act):
         super(DownTransition, self).__init__()
         self.ops = _make_nConv(in_channel, depth, act)
         self.maxpool = nn.MaxPool3d(2)
