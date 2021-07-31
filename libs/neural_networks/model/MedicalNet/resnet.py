@@ -276,7 +276,7 @@ def resnet200(**kwargs):
 
 
 class Resnet3d_cls(nn.Module):
-    def __init__(self, base_model, n_class=1, block_type='BasicBlock', add_dense1=True):
+    def __init__(self, base_model, n_class=1, block_type='BasicBlock', add_dense1=True, dropout_prob=0):
         super(Resnet3d_cls, self).__init__()
         self.base_model = base_model
 
@@ -294,6 +294,10 @@ class Resnet3d_cls(nn.Module):
             if block_type == 'Bottleneck':
                 self.dense_2 = nn.Linear(2048, n_class, bias=True)
 
+        self.dropout_prob = dropout_prob
+        if dropout_prob > 0:
+            self.dropout = nn.Dropout(dropout_prob)
+
 
     def forward(self, x):
         self.base_out = self.base_model(x)
@@ -301,6 +305,8 @@ class Resnet3d_cls(nn.Module):
 
         if self.add_dense1:
             self.linear_out = self.dense_1(self.out_glb_avg_pool)
+            if self.dropout_prob > 0:
+                self.linear_out = self.dropout(self.linear_out)
             final_out = self.dense_2(F.relu(self.linear_out))
         else:
             final_out = self.dense_2(self.out_glb_avg_pool)

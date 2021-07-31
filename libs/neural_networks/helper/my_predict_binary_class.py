@@ -4,7 +4,7 @@ from torch import nn as nn
 from torch.nn import functional as F
 
 
-def predict_single_model(model, dataloader, log_interval=1, activation='softmax', argmax=True):
+def predict_single_model(model, dataloader, log_interval=1, activation='sigmoid', threshold=None):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     if torch.cuda.device_count() > 0:
         model.to(device)
@@ -17,31 +17,34 @@ def predict_single_model(model, dataloader, log_interval=1, activation='softmax'
         for batch_idx, (inputs) in enumerate(dataloader):
             inputs = inputs.to(device)
             outputs = model(inputs)
-            if activation == 'softmax':
-                outputs = F.softmax(outputs, dim=1).data
             if activation == 'sigmoid':
                 outputs = F.sigmoid(outputs).data
-            list_probs.append(outputs.cpu().numpy())
+            outputs = torch.flatten(outputs)
+            list_probs.extend(outputs.cpu().numpy().tolist())
 
-            if log_interval is not None:
-                if batch_idx % log_interval == log_interval - 1:
+            if (log_interval is not None) and (batch_idx % log_interval == log_interval - 1):
                     print(f'batch:{batch_idx}')
 
-    probs = np.vstack(list_probs)
-
-    if argmax:
-        labels_pd = probs.argmax(axis=-1)
-        return probs, labels_pd
+    if threshold is not None:
+        probs = np.array(list_probs)
+        probs[probs > 0.5] = 1
+        probs[probs <= 0.5] = 0
+        list_labels = probs
+        return list_probs, list_labels
     else:
-        return probs
+        return list_probs
 
 
 
-def predict_multiple_models(models, weights, dataloader, log_interval=1, activation='softmax'):
+def predict_multiple_models(model_dicts, log_interval=1, activation='softmax'):
     list_probs = []
     total_weights = 0
 
-    for (model, weight) in zip(models, weights):
+    for model_dict in model_dicts:
+        model = model_dict['model']
+        dataloader = model_dict['dataloader']
+        weight = model_dict['weight']
+
         probs = predict_single_model(model, dataloader, log_interval=log_interval, activation=activation, argmax=False)
         list_probs.append(probs)
         total_weights += weight

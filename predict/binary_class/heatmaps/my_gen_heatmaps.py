@@ -3,36 +3,33 @@ warnings.filterwarnings("ignore")
 import os
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
-import torch
-import numpy as np
-import torch.nn as nn
-from captum.attr import *
 import pandas as pd
 import cv2
-from matplotlib import pyplot as plt
+import numpy as np
+import torch
+import torch.nn as nn
+from captum.attr import *
 import imageio
+from libs.neural_networks.model.my_get_model import get_model
+from matplotlib import pyplot as plt
 
-
+#region set parameters and load model
 dir_original = '/disk1/3D_OCT_DME/original/128_128_128/'
 dir_preprocess = '/disk1/3D_OCT_DME/preprocess/128_128_128/'
-dir_dest = '/disk1/3D_OCT_DME/results/heatmaps/test/'
-
-csv_file = os.path.join(os.path.abspath('../..'),
-                'datafiles', 'v1_topocon_128_128_128', '3D_OCT_DME_split_patid_test.csv')
-
+dir_dest = '/disk1/3D_OCT_DME/results/2021_7_6/heatmaps/test/'
+csv_file = os.path.join(os.path.abspath('../../..'), 'datafiles', 'v3', '3D_OCT_DME_test.csv')
 upsample_size = (128, 128, 128)
+slices_significance_number = 5
 gif_fps = 1
 
+
+model_name = 'cls_3d' #cls_3d, medical_net_resnet50
+model_file = os.path.join(os.path.abspath('../../..'), 'trained_models', 'binary_class', 'cls_3d.pth')
+model = get_model(model_name, num_class=1, model_file=model_file)
+activation = 'sigmoid'
+threshold = 0.5
+class_predict = 0
 image_shape = (64, 64)
-
-#region laod model
-
-from libs.neural_networks.model.cls_3d import Cls_3d
-num_class = 2
-model = Cls_3d(n_class=num_class)
-model_file = '/tmp2/2020_5_15/v1_topocon_128_128_128/ModelsGenesis/0/epoch12.pth'
-state_dict = torch.load(model_file, map_location='cpu')
-model.load_state_dict(state_dict, strict=True)
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 if torch.cuda.device_count() > 0:
@@ -43,7 +40,7 @@ model = model.eval()
 #endregion
 
 
-heatmap_type = 'GuidedGradCam'
+heatmap_type = 'GuidedBackprop'
 noise_tunnel = False
 
 dir_dest = os.path.join(dir_dest, heatmap_type)
@@ -52,26 +49,34 @@ if heatmap_type == 'GuidedBackprop':
 if heatmap_type == 'IntegratedGradients':
     integratedGradients = IntegratedGradients(model)
 if heatmap_type == 'LayerGradCam':
-    layer_gc = LayerGradCam(model, model.down_tr512)
+    if model_name == 'cls_3d':
+        layer_gc = LayerGradCam(model, model.down_tr512)
+    if model_name == 'medical_net_resnet50':
+        layer_gc = LayerGradCam(model, model.base_model.layer4)
 if heatmap_type == 'GuidedGradCam':
-    guidedGradCam = GuidedGradCam(model, model.down_tr512)
+    if model_name == 'cls_3d':
+        guidedGradCam = GuidedGradCam(model, model.down_tr512)
+    if model_name == 'medical_net_resnet50':
+        guidedGradCam = GuidedGradCam(model, model.base_model.layer4)
 
 from libs.dataset.my_dataset_torchio import get_tensor
 df = pd.read_csv(csv_file)
 for index, row in df.iterrows():
     file_npy = row['images']
+    class_gt = row['labels']
     tensor_x = get_tensor(file_npy, image_shape=image_shape,
                           depth_start=0, depth_interval=2)
     tensor_x = tensor_x.to(device)
     with torch.no_grad():
         outputs = model(tensor_x)
-        outputs = torch.softmax(outputs, dim=1)
+        if activation == 'sigmoid':
+            outputs = torch.sigmoid(outputs)
         #or pytorch implementation: _, preds = torch.max(outputs, 1)
-        probs = outputs.cpu().numpy()
-        class_predict = int(probs.argmax(axis=-1)[0]) #array(size:1) -> int value
+        # outputs = torch.flatten(outputs)
+        prob = float(outputs)
 
-        if class_predict == 1:
-            array_3d = np.load(file_npy)  # shape (D,H,W), used to generate original images
+        if prob > threshold:
+            array_3d = np.load(file_npy)  # shape (D,H,W), used to generate the preprocessed images
 
             if heatmap_type in ['GuidedBackprop', 'IntegratedGradients', 'GuidedGradCam']:
 
@@ -98,12 +103,19 @@ for index, row in df.iterrows():
                                                         mode='trilinear')
 
                 gradients = attribution.cpu().numpy()
-                gradients = np.squeeze(gradients)
+                gradients = np.squeeze(gradients, axis=(0,1))  #(N,C,D,H,W) - >(D,H,W)
                 gradients = np.maximum(0, gradients)  # only positive gradients
                 value_max = np.max(gradients)
                 # gradients = gradients - gradients.min()
                 gradients /= value_max
                 heatmaps = (gradients * 255).astype(np.uint8)
+
+                # find the most 5 significant heatmap slices
+                avg1 = np.average(heatmaps, axis=(1,2))
+                slice_significance = np.argsort(-avg1)[:slices_significance_number]
+                # slice_significance2 = np.argpartition(avg1, -5)[-5:]
+                # import heapq
+                # slice_significance = heapq.nlargest(slices_significance_number, range(len(avg1)), avg1.take)
 
                 # '/disk1/3D_OCT_DME/preprocess/128_128_128/Topocon/M0/02-000399_20161201_094159_OPT_L_001/02-000399_20161201_094159_OPT_L_001.npy'
                 dirname, filename = os.path.split(file_npy)
@@ -115,24 +127,27 @@ for index, row in df.iterrows():
                     print(file_img)
                     cv2.imwrite(file_img, array_3d[i])
 
-                    #heatmap image
-                    heatmap = heatmaps[i]
-                    file_heatmap = os.path.join(dir_heatmaps, f'heatmap_{str(i)}.jpg')
-                    os.makedirs(os.path.dirname(file_heatmap), exist_ok=True)
-                    print(filename)
-                    cv2.imwrite(file_heatmap, heatmap)
 
-                    # heatmaps gif
-                    file_img = os.path.join(dir_heatmaps, f'image_{str(i)}.jpg')
-                    file_heatmap = os.path.join(dir_heatmaps, f'heatmap_{str(i)}.jpg')
+                    if i in slice_significance:
+                        # heatmap image
+                        heatmap = heatmaps[i]
+                        file_heatmap = os.path.join(dir_heatmaps, f'heatmap_{str(i)}.jpg')
+                        os.makedirs(os.path.dirname(file_heatmap), exist_ok=True)
+                        print(file_heatmap)
+                        cv2.imwrite(file_heatmap, heatmap)
 
-                    mg_paths = [file_img, file_heatmap]
-                    gif_images = []
-                    for path in mg_paths:
-                        gif_images.append(imageio.imread(path))
-                    file_heatmap_gif = os.path.join(dir_heatmaps, f'heatmap_gif_{str(i)}.gif')
-                    os.makedirs(os.path.dirname(file_heatmap_gif), exist_ok=True)
-                    imageio.mimsave(file_heatmap_gif, gif_images, fps=gif_fps)
+                        # heatmaps gif
+                        file_img = os.path.join(dir_heatmaps, f'image_{str(i)}.jpg')
+                        file_heatmap = os.path.join(dir_heatmaps, f'heatmap_{str(i)}.jpg')
+
+                        mg_paths = [file_img, file_heatmap]
+                        gif_images = []
+                        for path in mg_paths:
+                            gif_images.append(imageio.imread(path))
+                        file_heatmap_gif = os.path.join(dir_heatmaps, f'heatmap_gif_{str(i)}.gif')
+                        os.makedirs(os.path.dirname(file_heatmap_gif), exist_ok=True)
+                        print(file_heatmap_gif)
+                        imageio.mimsave(file_heatmap_gif, gif_images, fps=gif_fps)
 
 
             if heatmap_type == 'LayerGradCam':
@@ -154,30 +169,32 @@ for index, row in df.iterrows():
                     print(file_img)
                     cv2.imwrite(file_img, array_3d[i])
 
-                    #heatmap image
-                    file_heatmap = os.path.join(dir_heatmaps, f'heatmap_{str(i)}.jpg')
-                    os.makedirs(os.path.dirname(file_heatmap), exist_ok=True)
-                    print(filename)
+                    if i in slice_significance:
+                        #heatmap image
+                        file_heatmap = os.path.join(dir_heatmaps, f'heatmap_{str(i)}.jpg')
+                        os.makedirs(os.path.dirname(file_heatmap), exist_ok=True)
 
-                    plt.axis("off")  # turns off axes
-                    # plt.axis("tight")  # gets rid of white border
-                    plt.imshow(cam[i], alpha=0.5, cmap='jet')
-                    # plt.show()
-                    #cam = cv2.applyColorMap(np.uint8(255 * grads), cv2.COLORMAP_JET)
-                    plt.savefig(file_heatmap, bbox_inches='tight', pad_inches=0)
-                    plt.close()
+                        plt.axis("off")  # turns off axes
+                        # plt.axis("tight")  # gets rid of white border
+                        plt.imshow(cam[i], alpha=0.5, cmap='jet')
+                        # plt.show()
+                        #cam = cv2.applyColorMap(np.uint8(255 * grads), cv2.COLORMAP_JET)
+                        print(file_heatmap)
+                        plt.savefig(file_heatmap, bbox_inches='tight', pad_inches=0)
+                        plt.close()
 
-                    # heatmaps gif
-                    file_img = os.path.join(dir_heatmaps, f'image_{str(i)}.jpg')
-                    file_heatmap = os.path.join(dir_heatmaps, f'heatmap_{str(i)}.jpg')
+                        # heatmaps gif
+                        file_img = os.path.join(dir_heatmaps, f'image_{str(i)}.jpg')
+                        file_heatmap = os.path.join(dir_heatmaps, f'heatmap_{str(i)}.jpg')
 
-                    mg_paths = [file_img, file_heatmap]
-                    gif_images = []
-                    for path in mg_paths:
-                        gif_images.append(imageio.imread(path))
-                    file_heatmap_gif = os.path.join(dir_heatmaps, f'heatmap_gif_{str(i)}.gif')
-                    os.makedirs(os.path.dirname(file_heatmap_gif), exist_ok=True)
-                    imageio.mimsave(file_heatmap_gif, gif_images, fps=gif_fps)
+                        mg_paths = [file_img, file_heatmap]
+                        gif_images = []
+                        for path in mg_paths:
+                            gif_images.append(imageio.imread(path))
+                        file_heatmap_gif = os.path.join(dir_heatmaps, f'heatmap_gif_{str(i)}.gif')
+                        os.makedirs(os.path.dirname(file_heatmap_gif), exist_ok=True)
+                        print(file_heatmap_gif)
+                        imageio.mimsave(file_heatmap_gif, gif_images, fps=gif_fps)
 
 
 print('OK')

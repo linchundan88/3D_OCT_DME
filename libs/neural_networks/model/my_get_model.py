@@ -1,23 +1,31 @@
 import torch
 
-def get_model(model_name, num_class=2, model_file=None):
-    if model_name == 'Cls_3d':
+def get_model(model_name, num_class=2, model_file=None, **params):
+    if 'drop_prob' not in params:
+        drop_prob = 0
+    else:
+        drop_prob = params['drop_prob']
+
+    if model_name == 'cls_3d':
         from libs.neural_networks.model.cls_3d import Cls_3d
-        model = Cls_3d(n_class=num_class)
+        model = Cls_3d(n_class=num_class, dropout_prob=drop_prob)
 
     # region medical net
     if model_name == 'medical_net_resnet34':
         from libs.neural_networks.model.MedicalNet.resnet import resnet34, Resnet3d_cls
         base_model = resnet34(output_type='classification')
-        model = Resnet3d_cls(base_model=base_model, n_class=num_class, block_type='BasicBlock', add_dense1=True)
+        model = Resnet3d_cls(base_model=base_model, n_class=num_class, block_type='BasicBlock',
+                             add_dense1=True, dropout_prob=drop_prob)
     if model_name == 'medical_net_resnet50':
         from libs.neural_networks.model.MedicalNet.resnet import resnet50, Resnet3d_cls
         base_model = resnet50(output_type='classification')
-        model = Resnet3d_cls(base_model=base_model, n_class=num_class, block_type='Bottleneck', add_dense1=True)
+        model = Resnet3d_cls(base_model=base_model, n_class=num_class, block_type='Bottleneck',
+                             add_dense1=True, dropout_prob=drop_prob)
     if model_name == 'medical_net_resnet101':
         from libs.neural_networks.model.MedicalNet.resnet import resnet101, Resnet3d_cls
         base_model = resnet101(output_type='classification')
-        model = Resnet3d_cls(base_model=base_model, n_class=num_class, block_type='Bottleneck', add_dense1=True)
+        model = Resnet3d_cls(base_model=base_model, n_class=num_class, block_type='Bottleneck',
+                             add_dense1=True, dropout_prob=drop_prob)
     # endregion
 
     if model_name == 'ModelsGenesis':

@@ -1,7 +1,8 @@
 # Created by .ignore support plugin (hsz.mobi)
 .idea
-./tmp/
-./datafiles/
-libs/neural_networks/optimizer_obsoleted
-libs/neural_networks/heatmaps/obsoleted
-trained_models/
+/tmp/
+/datafiles/
+/libs/neural_networks/optimizer_obsoleted
+/libs/neural_networks/heatmaps/obsoleted
+/trained_models/
+/trained_models/

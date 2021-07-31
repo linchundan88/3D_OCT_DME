@@ -9,12 +9,17 @@ import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument('--CUDA_VISIBLE_DEVICES')
 parser.add_argument('--task_type', default='3D_OCT_DME')
-parser.add_argument('--data_version', default='v2')
+parser.add_argument('--data_version', default='v3')
 parser.add_argument('--sampling_class_weights', default=(1, 2))  #dynamic resampling
-parser.add_argument('--model_name', default='Cls_3d') #medical_net_resnet50
+parser.add_argument('--model_name', default='cls_3d') #cls_3d, medical_net_resnet50
+parser.add_argument('--drop_prob', default='0')
 parser.add_argument('--pre_trained', default=True)  #initialize weights from pre-trained model
 parser.add_argument('--image_shape', default=(64, 64))
-parser.add_argument('--loss_weights', default=(1, 2))  #cost sensitive learning, weighted cross entropy
+parser.add_argument('--random_add', default=8)
+parser.add_argument('--random_crop_h', default=9)
+parser.add_argument('--random_noise', default=0.2)
+
+parser.add_argument('--pos_weight', default=(2.,))  #cost sensitive learning, weighted binary cross entropy
 parser.add_argument('--label_smoothing', default=0)
 parser.add_argument('--amp', default=False)  #AUTOMATIC MIXED PRECISION
 #recommend num_workers = the number of gpus * 4, when debugging it should be set to 0.
@@ -26,12 +31,8 @@ parser.add_argument('--epochs_num', default=15)
 parser.add_argument('--lr', default=0.001)
 parser.add_argument('--step_size', default=3)
 parser.add_argument('--gamma', default=0.3)
-parser.add_argument('--save_model_dir', default='/tmp2/2021_6_8/')
-
-parser.add_argument('--random_add', default=8)
-parser.add_argument('--random_crop_h', default=9)
-parser.add_argument('--random_noise', default=0.2)
-
+parser.add_argument('--log_interval_train', default=10)
+parser.add_argument('--save_model_dir', default='/tmp2/2021_7_25/binary_classifier/')
 
 args = parser.parse_args()
 
@@ -46,7 +47,7 @@ import torch.optim as optim
 from torch.optim.lr_scheduler import StepLR
 from libs.dataset.my_dataset_torchio import Dataset_CSV_train, Dataset_CSV_test
 from torch.utils.data import DataLoader
-from libs.neural_networks.helper.my_train import train
+from libs.neural_networks.helper.my_train_binary_class import train
 from libs.neural_networks.model.my_get_model import get_model
 #endregion
 
@@ -75,7 +76,6 @@ imgaug_iaa = iaa.Sequential([
 ])
 
 df = pd.read_csv(csv_train)
-num_class = df['labels'].nunique(dropna=True)
 
 from torch.utils.data.sampler import WeightedRandomSampler
 # list_class_samples = []
@@ -107,7 +107,7 @@ loader_test = DataLoader(ds_test, batch_size=args.batch_size_valid,
 #region define model
 
 if args.pre_trained:
-    if args.model_name == 'Cls_3d':
+    if args.model_name == 'cls_3d':
         model_file = '/disk1/Models_Genesis/Genesis_Chest_CT.pt'
     if args.model_name == 'medical_net_resnet34':
         model_file ='/disk1/MedicalNet_pytorch_files/pretrain/resnet_34.pth'
@@ -122,32 +122,27 @@ if args.pre_trained:
 else:
     model_file = None
 
-model = get_model(args.model_name, num_class=num_class, model_file=model_file)
+model = get_model(args.model_name, num_class=1, model_file=model_file, drop_prob=args.drop_prob) #binary classification
 
 #endregion
 
 
 #region training
-loss_weights = torch.FloatTensor(args.loss_weights)
-if torch.cuda.device_count() > 0:
-    loss_weights = loss_weights.cuda()
-if args.label_smoothing > 0:
-    from libs.neural_networks.loss.my_label_smoothing import LabelSmoothLoss
-    criterion = LabelSmoothLoss(class_weight=loss_weights, smoothing=args.label_smoothing)
-else:
-    criterion = nn.CrossEntropyLoss(weight=loss_weights, reduction='mean')
 
+# This loss combines a Sigmoid layer and the BCELoss in one single class.
+pos_weight = torch.FloatTensor(torch.tensor(args.pos_weight))
+if torch.cuda.is_available():
+    pos_weight = pos_weight.cuda()
+criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight, reduction='mean')
 optimizer = optim.Adam(model.parameters(), weight_decay=args.weight_decay, lr=args.lr)
-# from libs.neural_networks.my_optimizer import Lookahead
+# from libs.neural_networks.optimizer_obsoleted.my_optimizer import Lookahead
 # optimizer = Lookahead(optimizer=optimizer, k=5, alpha=0.5)
 scheduler = StepLR(optimizer, step_size=args.step_size, gamma=args.gamma)
 
-train(model,
-      loader_train=loader_train,
-      criterion=criterion, optimizer=optimizer, scheduler=scheduler,
-      epochs_num=args.epochs_num, amp=args.amp, log_interval_train=10,
-      loader_valid=loader_valid,
-      loader_test=loader_test,
+train(model, loader_train=loader_train, criterion=criterion, optimizer=optimizer,
+      activation='sigmoid', label_smoothing=args.label_smoothing,
+      scheduler=scheduler, epochs_num=args.epochs_num, log_interval_train=args.log_interval_train,
+      loader_valid=loader_valid, loader_test=loader_test, amp=args.amp,
       save_model_dir=os.path.join(args.save_model_dir, f'{args.task_type}_{args.data_version}', args.model_name)
       )
 

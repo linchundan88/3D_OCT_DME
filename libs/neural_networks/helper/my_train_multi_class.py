@@ -1,4 +1,4 @@
-''' train a multi-class classifier '''
+''' train a binary classifier '''
 import warnings
 warnings.filterwarnings("ignore")
 import os
@@ -10,7 +10,7 @@ from torch.cuda.amp import autocast, GradScaler
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 #amp:AUTOMATIC MIXED PRECISION
-def train(model, loader_train, criterion, optimizer, scheduler, epochs_num,
+def train(model, loader_train, criterion, activation, optimizer, scheduler, epochs_num,
           amp=False, accumulate_grads_times=None,
           log_interval_train=10, log_interval_valid=None,
           loader_valid=None, loader_test=None,
@@ -61,7 +61,9 @@ def train(model, loader_train, criterion, optimizer, scheduler, epochs_num,
             # region batch statistics
             # CrossEntropyLoss contains log_softmax and	nll_loss
             # the following line can be eliminated, unless we want to show probs.
-            outputs = torch.softmax(outputs, dim=1)
+            assert activation in [None, 'softmax'], f'activation function error!'
+            if activation == 'softmax':
+                outputs = torch.softmax(outputs, dim=1)
             _, preds = torch.max(outputs, 1)
 
             list_labels += labels.cpu().numpy().tolist()
@@ -87,13 +89,13 @@ def train(model, loader_train, criterion, optimizer, scheduler, epochs_num,
 
         if loader_valid:
             print('computing validation dataset...')
-            validate(model, loader_valid, log_interval_valid, criterion=criterion)
+            validate(model, loader_valid, log_interval_valid, criterion=criterion, activation=activation)
         if loader_test:
             print('computing test dataset...')
-            validate(model, loader_test, log_interval_valid)
+            validate(model, loader_test, log_interval_valid, activation=activation)
 
-        if save_model_dir:
-            os.makedirs(os.path.dirname(save_model_dir), exist_ok=True)
+        if save_model_dir is not None:
+            os.makedirs(save_model_dir, exist_ok=True)
 
             if save_jit:
                 #torch.jit.script(model) error
@@ -114,7 +116,7 @@ def train(model, loader_train, criterion, optimizer, scheduler, epochs_num,
 
 
 @torch.no_grad()
-def validate(model, dataloader, log_interval=None, criterion=None):
+def validate(model, dataloader, log_interval=None, criterion=None, activation=None):
     model.eval()
     epoch_loss = 0
     list_labels, list_preds = [], []
@@ -126,7 +128,9 @@ def validate(model, dataloader, log_interval=None, criterion=None):
             loss = criterion(outputs, labels)
             epoch_loss += loss.item()
 
-        outputs = torch.softmax(outputs, dim=1)
+        assert activation in [None, 'softmax'], f'activation function error!'
+        if activation == 'softmax':
+            outputs = torch.softmax(outputs, dim=1)
         _, preds = torch.max(outputs, 1)
 
         list_labels += labels.cpu().numpy().tolist()

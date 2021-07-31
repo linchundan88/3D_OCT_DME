@@ -8,7 +8,7 @@ task_type = '3D_OCT_DME'
 #zeiss  ZEISS ,Topocon
 dict_mapping = {'M0': 0, 'M0_no_diabetes': 0, 'M1': 1, 'M2': 1}
 dir_process = '/disk1/3D_OCT_DME/preprocess/128_128_128/'
-data_version = 'v2'
+data_version = 'v3'
 
 csv_all = os.path.abspath(os.path.join(os.path.abspath('..'),
             'datafiles', data_version, task_type + '.csv'))
@@ -67,7 +67,7 @@ v2 topocon and ZEISS
 0 766
 1 219
 
-
+v3 topocon and ZEISS
 4814
 0 3831
 1 983
@@ -78,6 +78,17 @@ v2 topocon and ZEISS
 0 816
 1 206
 
+
+4789
+0 3704
+1 1085
+1026
+0 792
+1 234
+1041
+0 817
+1 224
+OK
 
 '''
 

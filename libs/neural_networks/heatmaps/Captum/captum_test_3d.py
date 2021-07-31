@@ -17,7 +17,7 @@ from libs.dataset.my_dataset_torchio import get_tensor
 from libs.neural_networks.model.ModelsGenesis.unet3d import UNet3D, TargetNet
 base_model = UNet3D()
 model = TargetNet(base_model, n_class=2)
-# model_file = '/tmp2/2020_2_23/v1_topocon_128_128_128/ModelsGenesis/0/epoch12.pth'
+# model_file = '/tmp2/2020_2_23/v1_topocon_128_128_128/ModelsGenesis/0/medical_net_resnet50.pth'
 model_file = '/tmp2/2020_2_23_afternoon/v1_topocon_128_128_128/medical_net_resnet50/0/epoch5.pth'
 state_dict = torch.load(model_file, map_location='cpu')
 model.load_state_dict(state_dict, strict=False)
