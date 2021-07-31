@@ -36,7 +36,7 @@ def predict_single_model(model, dataloader, log_interval=1, activation='sigmoid'
 
 
 
-def predict_multiple_models(model_dicts, log_interval=1, activation='softmax'):
+def predict_multiple_models(model_dicts, log_interval=1, activation='sigmoid'):
     list_probs = []
     total_weights = 0
 
@@ -44,17 +44,19 @@ def predict_multiple_models(model_dicts, log_interval=1, activation='softmax'):
         model = model_dict['model']
         dataloader = model_dict['dataloader']
         weight = model_dict['weight']
-
-        probs = predict_single_model(model, dataloader, log_interval=log_interval, activation=activation, argmax=False)
-        list_probs.append(probs)
         total_weights += weight
+
+        probs = predict_single_model(model, dataloader, log_interval=log_interval, activation=activation)
+        list_probs.append(probs)
+
+        probs = np.array(probs)
         if 'final_probs' not in locals().keys():
             final_probs = probs * weight
         else:
             final_probs += probs * weight
 
-    probs_ensembling = final_probs / total_weights
+    probs_ensembling = np.array(final_probs) / total_weights
 
-    return list_probs, probs_ensembling
+    return list_probs, probs_ensembling.tolist()
 
 

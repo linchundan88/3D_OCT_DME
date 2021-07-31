@@ -44,7 +44,7 @@ loader_test = DataLoader(ds_test, batch_size=32, pin_memory=True, num_workers=4)
 model_dict = {'model': model, 'weight': 1, 'dataloader': loader_test}
 models_dicts.append(model_dict)
 
-probs, probs_ensembling = predict_multiple_models(models_dicts)
+_, probs_ensembling = predict_multiple_models(models_dicts)
 labels_pd = np.array(probs_ensembling)
 labels_pd[labels_pd > threshold] = 1
 labels_pd[labels_pd <= threshold] = 0

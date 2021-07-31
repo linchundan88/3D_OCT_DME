@@ -64,7 +64,7 @@ def train(model, loader_train, criterion, activation, optimizer, scheduler, epoc
             assert activation in [None, 'softmax'], f'activation function error!'
             if activation == 'softmax':
                 outputs = torch.softmax(outputs, dim=1)
-            _, preds = torch.max(outputs, 1)
+            _, preds = torch.max(outputs, dim=1)
 
             list_labels += labels.cpu().numpy().tolist()
             list_preds += preds.cpu().numpy().tolist()
