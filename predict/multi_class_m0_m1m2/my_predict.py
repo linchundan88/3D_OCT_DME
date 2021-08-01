@@ -12,8 +12,7 @@ from libs.neural_networks.helper.my_predict_multi_class import predict_single_mo
 import shutil
 from libs.neural_networks.model.my_get_model import get_model
 
-filename_csv = os.path.join(os.path.abspath('../..'),
-                'datafiles', 'v3', f'3D_OCT_DME.csv')
+filename_csv = os.path.join(os.path.abspath('../..'), 'datafiles', 'v3', '3D_OCT_DME_M0_M1M2.csv')
 dir_original = '/disk1/3D_OCT_DME/original/'
 dir_preprocess = '/disk1/3D_OCT_DME/preprocess/128_128_128/'
 dir_dest = '/tmp2/3D_OCT_DME/3D_OCT_DME_confusion_files_2021_6_6/'
@@ -21,7 +20,7 @@ export_confusion_files = False
 
 num_class = 2
 model_name = 'cls_3d'
-model_file = os.path.join(os.path.abspath('../..'), 'trained_models', 'multi_class', 'cls_3d.pth')
+model_file = os.path.join(os.path.abspath('../..'), 'trained_models', 'multi_class_m0_m1m2', 'cls_3d.pth')
 image_shape = (64, 64)
 
 model = get_model(model_name, num_class=num_class, model_file=model_file)

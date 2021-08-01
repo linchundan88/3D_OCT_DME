@@ -1,15 +1,15 @@
-torch >= 1.7.1
-torchvision >= 0.8.2
 numpy >= 1.11
 pandas >= 1.2.2
-scikit-learn >= 0.24.1
 opencv-python >= 4.1
 imgaug >= 0.4.0
 albumentations >= 0.5.2
 pydicom >= 2.1.2
 torchio >= 0.18.29
+torch >= 1.7.1
+torchvision >= 0.8.2
 captum >= 0.3.1
 matplotlib >= 3.3.4
+scikit-learn >= 0.24.1
 imageio >= 2.9.0
 
 

@@ -28,3 +28,4 @@ Confusion Matrix: [[653  29]
  [  3  46]]
 save model: /tmp2/2020_3_11_wo_pretrain/v1_topocon_128_128_128/medical_net_resnet50/0/epoch14.pth
 
+

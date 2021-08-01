@@ -17,7 +17,7 @@ from matplotlib import pyplot as plt
 dir_original = '/disk1/3D_OCT_DME/original/128_128_128/'
 dir_preprocess = '/disk1/3D_OCT_DME/preprocess/128_128_128/'
 dir_dest = '/disk1/3D_OCT_DME/results/2021_7_31/heatmaps/test/'
-csv_file = os.path.join(os.path.abspath('../../..'), 'datafiles', 'v3', '3D_OCT_DME_test.csv')
+csv_file = os.path.join(os.path.abspath('../../..'), 'datafiles', 'v3', '3D_OCT_DME_M0_M1M2_test.csv')
 upsample_size = (128, 128, 128)
 slices_significance_number = 5
 gif_fps = 1

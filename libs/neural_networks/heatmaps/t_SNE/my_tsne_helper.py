@@ -24,7 +24,7 @@ def __get_features(model, inputs, layer):
     #         final_layer = v
 
     activated_features = _SaveFeatures(layer)
-    prediction = model(inputs)
+    _ = model(inputs)
     activated_features.remove()
 
     return activated_features.features

@@ -13,7 +13,7 @@ from libs.neural_networks.helper.my_predict_binary_class import predict_multiple
 import shutil
 from libs.neural_networks.model.my_get_model import get_model
 
-filename_csv = os.path.join(os.path.abspath('../..'), 'datafiles', 'v3', f'3D_OCT_DME_M1_M2.csv')
+filename_csv = os.path.join(os.path.abspath('../..'), 'datafiles', 'v3', '3D_OCT_DME_M1_M2.csv')
 dir_original = '/disk1/3D_OCT_DME/original/'
 dir_preprocess = '/disk1/3D_OCT_DME/preprocess/128_128_128/'
 dir_dest = '/tmp2/3D_OCT_DME/3D_OCT_DME_confusion_files_2021_7_26/'

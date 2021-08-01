@@ -27,8 +27,8 @@ loader_test = DataLoader(ds_test, batch_size=batch_size,
                          pin_memory=True, num_workers=4)
 #endregion
 
-from libs.neural_networks.heatmaps.t_SNE.my_tsne_helper import compute_features, gen_tse_features, draw_tsne
-features = compute_features(model, layer_features, loader_test)
+from libs.neural_networks.heatmaps.t_SNE.my_tsne_helper import compute_features_files, gen_tse_features, draw_tsne
+features = compute_features_files(model, layer_features, loader_test)
 
 X_tsne = gen_tse_features(features)
 if save_features:

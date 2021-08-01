@@ -6,7 +6,6 @@ import csv
 from libs.data_preprocess.my_data_patiend_id import split_dataset_by_pat_id
 
 task_type_source = '3D_OCT_DME'
-# ZEISS ,Topocon
 dict_mapping = {'M1': 0, 'M2': 1}
 dir_process = '/disk1/3D_OCT_DME/preprocess/128_128_128/'
 data_version = 'v3'
