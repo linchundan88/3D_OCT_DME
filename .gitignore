@@ -1,10 +1,13 @@
 # Created by .ignore support plugin (hsz.mobi)
-.idea
-/datafiles/
-/libs/neural_networks/optimizer_obsoleted/
-/libs/neural_networks/heatmaps/obsoleted/
-/trained_models/
-/trained_models/
-/tmp/
+/.idea/
+/cls_3d/datafiles/
+/cls_3d/libs/neural_networks/optimizer_obsoleted/
+/cls_3d/libs/neural_networks/heatmaps/obsoleted/
+/cls_3d/trained_models/
+/cls_3d/tmp/
 
-/git_gitignore_readme
+
+/fovea_cls/datafiles/
+/fovea_cls/trained_models/
+/cls_3d/libs/dataset/test/
+/fovea_cls/

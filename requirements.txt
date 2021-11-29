@@ -12,8 +12,21 @@ matplotlib >= 3.3.4
 scikit-learn >= 0.24.1
 imageio >= 2.9.0
 
+#  sudo apt-get install python3-dev default-libmysqlclient-dev build-essential
+#pip install mysqlclient
 
-# pip install -i https://mirrors.aliyun.com/pypi/simple/  pandas torch torchvision scikit-learn medcam imgaug captum pydicom matplotlib albumentations torchio pretrainedmodels tensorboard torch_optimizer timm SimpleITK
+#pip install -i https://mirrors.aliyun.com/pypi/simple/   torch torchvision
+# pip install medcam
+# pip install -i https://mirrors.aliyun.com/pypi/simple/  pandas scikit-learn mysqlclient openpyxl  pydicom SimpleITK matplotlib  seaborn imgaug  albumentations  torchio captum pretrainedmodels tensorboard torch_optimizer timm
+
+# pip install -i https://mirrors.aliyun.com/pypi/simple/ openslide-python
+
+# pip install staintools
+
+
+# sudo apt-get install openslide-tools g++ gcc libblas-dev liblapack-dev
+# conda install openjdk==8.0.152
+# pip install pathml
 
 # python -m pip install detectron2 -f \
 #  https://dl.fbaipublicfiles.com/detectron2/wheels/cu110/torch1.7/index.html
@@ -23,3 +36,5 @@ imageio >= 2.9.0
 #  https://dl.fbaipublicfiles.com/detectron2/wheels/cu110/torch1.7/index.html
 
 # conda install cocotools  #pip error
+
+
