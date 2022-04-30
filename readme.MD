@@ -4,8 +4,8 @@ compared to medical_net_resnet50 cls_3d is a small model, however it obtained go
 model ensembling(unweighted average) by combining  medical_net_resnet50 and cls_3d two models achieved better performance.
 
 the performance of M0/M1M2 is very good(both multi class and binary class classification).
-the performance of M1/M2 is poor.
-the performance of M0/M1/M2 is poor(multi-class).
+the performance of M1/M2 is acceptable.
+
 
 This project includes the following directories:
 1.data_process

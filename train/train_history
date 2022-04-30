@@ -1,0 +1,19 @@
+2022-4-26  M0 VS M1+M2 binary classification
+cls_3d
+ [[682  32]
+ [ 20 209]]
+
+ModelGenesis
+ [[695  25]
+ [ 27 209]]
+
+medical_net_resnet50
+ [[663  51]
+ [ 26 203]]
+
+
+M1 VS M2 binary classification
+
+
+
+
