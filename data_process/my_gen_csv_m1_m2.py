@@ -3,7 +3,7 @@ import sys
 sys.path.append(os.path.abspath('..'))
 
 from libs.data_preprocess.my_data import write_images_labels_csv, write_csv_based_on_dir
-from libs.data_preprocess.my_data_patiend_id import split_dataset_by_pat_id
+from libs.data_preprocess.my_data_patient_id import split_dataset_by_pat_id
 
 
 task_type = '3D_OCT_DME_M1_M2'

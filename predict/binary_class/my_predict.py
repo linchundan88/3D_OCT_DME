@@ -18,7 +18,7 @@ import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument('--CUDA_VISIBLE_DEVICES', default='0,1')
 parser.add_argument('--task_type', default='3D_OCT_DME_M0_M1M2_test')  #3D_OCT_DME_M0_M1M2, 3D_OCT_DME_M1_M2
-parser.add_argument('--image_shape', default=(64, 64))
+parser.add_argument('--image_shape', nargs='+', type=int, default=(64, 64))
 parser.add_argument('--data_version', default='v1')
 parser.add_argument('--dir_dest', default='/tmp2/3D_OCT_DME/2022_4_28_64_64/m0_m1m2')
 parser.add_argument('--export_confusion_files', action='store_true')

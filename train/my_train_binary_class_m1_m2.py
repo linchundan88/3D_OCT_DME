@@ -13,12 +13,12 @@ parser.add_argument('--task_type', default='3D_OCT_DME_M1_M2')
 parser.add_argument('--data_version', default='v1')
 parser.add_argument('--model_name', default='ModelsGenesis') #cls_3d, ModelsGenesis, medical_net_resnet50
 parser.add_argument('--drop_prob', default=0)
-parser.add_argument('--image_shape', default=(64, 64))
+parser.add_argument('--image_shape',  nargs='+', type=int, default=(128, 128)) #(64, 64), (96,96), (128,128)
 parser.add_argument('--random_add', default=8)
 parser.add_argument('--random_crop_h', default=9)
 parser.add_argument('--random_noise', default=0.2)
 
-parser.add_argument('--pos_weight', default=(0.85,))  #cost sensitive learning, weighted binary cross entropy
+parser.add_argument('--pos_weight', nargs='+', type=float, default=(0.85,))  #cost sensitive learning, weighted binary cross entropy
 parser.add_argument('--label_smoothing', default=0)
 parser.add_argument('--amp', action='store_true', default=False)  #AUTOMATIC MIXED PRECISION
 #recommend num_workers = the number of gpus * 4, when debugging it should be set to 0.
@@ -47,6 +47,7 @@ from torch.utils.data import DataLoader
 from libs.neural_networks.model.my_get_model import get_model
 from libs.neural_networks.helper.my_train_binary_class import train
 
+# print(args)
 #endregion
 
 #region dataset
@@ -87,7 +88,7 @@ loader_test = DataLoader(ds_test, batch_size=args.batch_size_valid,
 #endregion
 
 #region load model transfer from m0 vs m1 and m2
-path_trained_models = Path(__file__).resolve().parent.parent / 'trained_models' / '2022_4_28_64_64' / 'binary_class'
+path_trained_models = Path(__file__).resolve().parent.parent / 'trained_models' / '2022_4_28_64_64' / 'binary_class_m0_m1m2'
 if args.model_name == 'cls_3d':
     model_file = path_trained_models / 'cls_3d.pth'
 if args.model_name == 'medical_net_resnet50':

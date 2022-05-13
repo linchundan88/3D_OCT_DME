@@ -11,18 +11,18 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--CUDA_VISIBLE_DEVICES', default='0,1')
 parser.add_argument('--task_type', default='3D_OCT_DME_M0_M1M2')
 parser.add_argument('--data_version', default='v1')
-parser.add_argument('--sampling_class_weights', default=(1, 2))  #dynamic resampling
+parser.add_argument('--sampling_weights', nargs='+', type=float, default=(1, 2))  #dynamic resampling
 parser.add_argument('--model_name', default='cls_3d') #cls_3d, medical_net_resnet50, ModelsGenesis
 parser.add_argument('--drop_prob', default=0)
-parser.add_argument('--pre_trained', default=True)  #initialize weights from pre-trained model
-parser.add_argument('--image_shape', default=(128, 128)) #(64, 64), (96,96), (128,128)
+parser.add_argument('--pre_trained', action='store_true', default=True)  #initialize weights from pre-trained model
+parser.add_argument('--image_shape', nargs='+', type=int, default=(128, 128)) #(64, 64), (96,96), (128,128)
 parser.add_argument('--random_add', default=8)
 parser.add_argument('--random_crop_h', default=8)
 parser.add_argument('--random_noise', default=0.2)
 
-parser.add_argument('--pos_weight', default=(2.,))  #cost sensitive learning, weighted binary cross entropy
+parser.add_argument('--pos_weight', nargs='+', type=float, default=(2.,))  #cost sensitive learning, weighted binary cross entropy
 parser.add_argument('--label_smoothing', default=0)  #0.1  or 0
-parser.add_argument('--amp', action='store_true')  #action='store_true' default=True AUTOMATIC MIXED PRECISION
+parser.add_argument('--amp', action='store_true', default=True)  # AUTOMATIC MIXED PRECISION
 #recommend num_workers = the number of gpus * 4, when debugging it should be set to 0.
 parser.add_argument('--num_workers', default=4)
 parser.add_argument('--batch_size_train', default=32)
@@ -49,6 +49,7 @@ from torch.utils.data import DataLoader
 from libs.neural_networks.model.my_get_model import get_model
 from libs.neural_networks.helper.my_train_binary_class import train
 
+# print(args)
 #endregion
 
 #region dataset
@@ -77,11 +78,15 @@ df = pd.read_csv(csv_train)
 # for label in range(num_class):
 #     list_class_samples.append(len(df[df['labels'] == label]))
 # loss_class_weights = 1 / np.power(list_class_samples, 0.5)
-sampling_weights = []
-for label in df['labels']:
-    sampling_weights.append(args.sampling_class_weights[label])
-from torch.utils.data.sampler import WeightedRandomSampler
-sampler = WeightedRandomSampler(weights=sampling_weights, num_samples=len(df))
+if 'sampling_weights' in args and args.sampling_weights is not None:
+    sampling_weights = []
+    for label in df['labels']:
+        sampling_weights.append(args.sampling_weights[label])
+    from torch.utils.data.sampler import WeightedRandomSampler
+    sampler = WeightedRandomSampler(weights=sampling_weights, num_samples=len(df))
+else:
+    sampler = None
+
 ds_train = Dataset_CSV_train(csv_file=csv_train,  image_shape=args.image_shape, depth_interval=2,
                              random_crop_h=args.random_crop_h, random_noise=args.random_noise,
                              imgaug_iaa=imgaug_iaa)

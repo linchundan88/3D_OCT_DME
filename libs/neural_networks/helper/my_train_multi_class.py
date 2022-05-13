@@ -33,13 +33,15 @@ def train(model, loader_train, criterion, activation, optimizer, scheduler, epoc
         for batch_idx, (inputs, labels) in enumerate(loader_train):
             inputs = inputs.to(device)
             labels = labels.to(device)
-            with autocast(enabled=amp):
-                outputs = model(inputs)
-                loss = criterion(outputs, labels)
 
             if (accumulate_grads_times is None) or  \
                     (accumulate_grads_times is not None and batch_idx % accumulate_grads_times == 0):
                 optimizer.zero_grad()
+            with autocast(enabled=amp):
+                outputs = model(inputs)
+                loss = criterion(outputs, labels)
+            if (accumulate_grads_times is None) or  \
+                    (accumulate_grads_times is not None and batch_idx % accumulate_grads_times == 0):
                 if not amp:
                     loss.backward()
                     optimizer.step()
@@ -80,7 +82,7 @@ def train(model, loader_train, criterion, activation, optimizer, scheduler, epoc
 
         if loader_valid:
             print('computing validation dataset...')
-            validate(model, loader_valid, log_interval_valid, criterion=criterion, activation=activation)
+            loss_valid = validate(model, loader_valid, log_interval_valid, criterion=criterion, activation=activation)
         if loader_test:
             print('computing test dataset...')
             validate(model, loader_test, log_interval_valid, activation=activation)
@@ -90,13 +92,13 @@ def train(model, loader_train, criterion, activation, optimizer, scheduler, epoc
 
             if save_jit:
                 #torch.jit.script(model) error
-                save_model_file = os.path.join(save_model_dir, f'epoch{epoch}.pth_jit')
+                save_model_file = os.path.join(save_model_dir, f'epoch{epoch}{round(loss_valid, 3)}.pth_jit')
                 print('save model:', save_model_file)
                 scripted_module = torch.jit.script(model)
                 torch.jit.save(scripted_module, save_model_file)
                 #model = torch.jit.load(model_file_saved)
             else:
-                save_model_file = os.path.join(save_model_dir, f'epoch{epoch}.pth')
+                save_model_file = os.path.join(save_model_dir, f'epoch{epoch}{round(loss_valid, 3)}.pth')
                 os.makedirs(os.path.dirname(save_model_file), exist_ok=True)
                 print('save model:', save_model_file)
                 try:
@@ -129,10 +131,9 @@ def validate(model, dataloader, log_interval=None, criterion=None, activation=No
             if batch_idx % log_interval == log_interval - 1:
                 print(f'batch:{batch_idx + 1} ')
 
-    if criterion is not None:
-        print(f'losses:{epoch_loss / (batch_idx+1):8.3f}')
     print('Confusion Matrix:', confusion_matrix(list_labels, list_preds))
     print(classification_report(list_labels, list_preds))
 
-
-
+    if criterion is not None:
+        print(f'losses:{epoch_loss / (batch_idx+1):8.3f}')
+        return epoch_loss / (batch_idx+1)

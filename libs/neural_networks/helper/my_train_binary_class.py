@@ -40,14 +40,16 @@ def train(model, loader_train, criterion, activation, optimizer, scheduler, epoc
                 labels[labels == 0] = label_smoothing
             inputs = inputs.to(device)
             labels = labels.to(device)
-            with autocast(enabled=amp):
-                outputs = model(inputs)
-                outputs = torch.flatten(outputs)
-                loss = criterion(outputs, labels)
 
             if (accumulate_grads_times is None) or  \
                     (accumulate_grads_times is not None and batch_idx % accumulate_grads_times == 0):
                 optimizer.zero_grad()
+            with autocast(enabled=amp):
+                outputs = model(inputs)
+                outputs = torch.flatten(outputs)
+                loss = criterion(outputs, labels)
+            if (accumulate_grads_times is None) or  \
+                    (accumulate_grads_times is not None and batch_idx % accumulate_grads_times == 0):
                 if not amp:
                     loss.backward()
                     optimizer.step()

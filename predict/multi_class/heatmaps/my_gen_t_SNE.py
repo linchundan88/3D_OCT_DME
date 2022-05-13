@@ -9,7 +9,7 @@ from libs.neural_networks.model.my_get_model import get_model
 
 #region load model and set some parameters
 csv_file = os.path.join(os.path.abspath('../../../cls_3d/'), 'datafiles', 'v3', '3D_OCT_DME_M0_M1M2_test.csv')
-dir_dest = '/disk1/3D_OCT_DME/results/2021_7_31/heatmaps_multi_class/t_SNE/'
+dir_dest = '/disk1/3D_OCT_DME/results/2021_7_31/heatmaps_multi_class/dimensionality_reduction/'
 tsne_image_file = os.path.join(dir_dest, 't_sne_test.png')
 save_features = False
 npy_file_features = os.path.join(dir_dest, 't_sne_test.npy')
@@ -29,10 +29,10 @@ loader_test = DataLoader(ds_test, batch_size=batch_size,
 #endregion
 
 
-from libs.neural_networks.heatmaps.t_SNE.my_tsne_helper import compute_features_files, gen_tse_features, draw_tsne
-features = compute_features_files(model, layer_features, loader_test)
+from libs.neural_networks.heatmaps.t_SNE.my_tsne_helper import compute_features_batches, gen_features_reduced, draw_tsne
+features = compute_features_batches(model, layer_features, loader_test)
 
-X_tsne = gen_tse_features(features)
+X_tsne = gen_features_reduced(features)
 if save_features:
     os.makedirs(os.path.dirname(npy_file_features), exist_ok=True)
     import numpy as np

@@ -23,7 +23,7 @@ parser.add_argument('--task_type', default='3D_OCT_DME_M0_M1M2_train') #3D_OCT_D
 parser.add_argument('--data_version', default='v1')
 parser.add_argument('--model_name', default='medical_net_resnet50')  #cls_3d, medical_net_resnet50
 parser.add_argument('--heatmap_type', default='IntegratedGradients')  #GuidedBackprop GuidedGradCam IntegratedGradients
-parser.add_argument('--image_shape', default=(64, 64))
+parser.add_argument('--image_shape', nargs='+', type=int, default=(64, 64))
 parser.add_argument('--dir_dest', default='/tmp2/3D_OCT_DME/2022_4_28_64_64/m0_m1m2/medical_net_resnet50/IntegratedGradients')
 args = parser.parse_args()
 
